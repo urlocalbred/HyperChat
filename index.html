@@ -5,15 +5,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HyperChat</title>
     
-    <!-- Link to external CSS file -->
-    <link rel="stylesheet" href="style.css">
-    
-    <!-- PeerJS for Voice -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: sans-serif; background: #313338; color: white; }
+        
+        #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .auth-box { background: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; width: 90%; max-width: 350px; }
+        .auth-input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #1e1f22; color: white; }
+        .auth-btn { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; font-weight: bold; }
+        .google-btn { background: white; color: black; }
+
+        #app-container { display: none; height: 100vh; display: flex; }
+        
+        #sidebar { width: 250px; background: #2b2d31; color: white; padding: 20px; display: flex; flex-direction: column; }
+        #brand { font-size: 1.2em; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #1e1f22; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        #logout-btn { background: #da373c; padding: 5px 10px; border-radius: 4px; border: none; color: white; cursor: pointer; font-size: 0.8em; }
+        
+        .channel-link { color: #949ba4; padding: 5px; border-radius: 4px; cursor: pointer; margin-bottom: 5px; }
+        .channel-link:hover { background: #3f4147; color: white; }
+        .active-chat-link { background: #3f4147; color: white; }
+
+        .friend-item { display: flex; justify-content: space-between; align-items: center; background: #1e1f22; padding: 8px; margin-bottom: 5px; border-radius: 4px; font-size: 0.9em; cursor: pointer; }
+        .friend-item:hover { background: #383a40; }
+        .friend-call-btn { background: #23a559; border: none; color: white; border-radius: 3px; cursor: pointer; padding: 4px 8px; font-size: 0.8em; }
+
+        #main-chat { flex-grow: 1; display: flex; flex-direction: column; background: #313338; color: white; overflow: hidden; }
+        
+        #call-status-bar { background: #1e1f22; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2b2d31; font-size: 0.9em; }
+        #hangup-btn { background: #da373c; padding: 5px 15px; border-radius: 4px; border: none; color: white; cursor: pointer; font-weight: bold; display: none; }
+
+        #chat-header { padding: 15px 20px; border-bottom: 1px solid #2b2d31; font-weight: bold; font-size: 1.1em; }
+        
+        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message-block { display: flex; flex-direction: column; }
+        .sender-name { font-weight: bold; font-size: 0.9em; color: #5865F2; margin-bottom: 2px; }
+        
+        #input-area { padding: 20px; background: #2b2d31; display: flex; gap: 10px; }
+        #message-input { flex-grow: 1; padding: 10px; border-radius: 5px; border: none; background: #383a40; color: white; }
+        #send-btn { padding: 10px 20px; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; }
+
+        @media (max-width: 768px) {
+            #app-container { flex-direction: column; }
+            #sidebar { width: 100%; height: auto; max-height: 40vh; overflow-y: auto; border-bottom: 2px solid #1e1f22; }
+            #main-chat { height: 60vh; }
+        }
+    </style>
 </head>
 <body>
 
-    <!-- LOGIN SCREEN -->
     <div id="auth-screen">
         <div class="auth-box">
             <h2>HyperChat</h2>
@@ -25,60 +66,55 @@
         </div>
     </div>
 
-    <!-- CHAT APP SCREEN -->
     <div id="app-container">
         <div id="sidebar">
             <div>
                 <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
                 <h3>Channels</h3>
-                <p class="active-channel"># general</p>
-                <p class="inactive-channel">🔊 voice</p>
+                <div id="general-channel-btn" class="channel-link active-chat-link"># general</div>
             </div>
             
-            <!-- FRIENDS LIST -->
-            <div class="sidebar-section">
-                <h3 style="margin-top: 0;">Friends List</h3>
-                <div id="friends-list"></div>
+            <div style="margin-top: 15px; border-top: 1px solid #1e1f22; padding-top: 15px;">
+                <h3 style="margin-top: 0;">Direct Messages</h3>
+                <div id="friends-list" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></div>
                 
-                <div class="friend-inputs">
-                    <input type="text" id="friend-name-input" placeholder="Friend's Name">
-                    <input type="text" id="friend-id-input" placeholder="Their Voice ID">
-                    <button id="add-friend-btn">+ Add Friend</button>
+                <div style="display: flex; gap: 5px; flex-direction: column;">
+                    <input type="text" id="friend-name-input" placeholder="Friend's Name" style="padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
+                    <input type="text" id="friend-id-input" placeholder="Their Voice ID" style="padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
+                    <button id="add-friend-btn" style="background: #2b2d31; border: 1px solid #5865F2; color: #5865F2; border-radius: 3px; cursor: pointer; padding: 6px;">+ Add Friend</button>
                 </div>
             </div>
 
-            <!-- USER PROFILE -->
-            <div id="user-profile">
-                <div class="profile-label">LOGGED IN AS</div>
-                <div id="current-username">Loading...</div>
+            <div id="user-profile" style="margin-top: auto; border-top: 1px solid #1e1f22; padding-top: 15px;">
+                <div style="font-size: 0.8em; color: #949ba4; margin-bottom: 5px;">LOGGED IN AS</div>
+                <div id="current-username" style="font-weight: bold; margin-bottom: 10px; color: white;">Loading...</div>
                 <div style="display: flex; gap: 5px;">
-                    <input type="text" id="username-input" placeholder="New name...">
-                    <button id="save-username-btn">Save</button>
+                    <input type="text" id="username-input" placeholder="New name..." style="width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
+                    <button id="save-username-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px;">Save</button>
                 </div>
             </div>
         </div>
 
         <div id="main-chat">
-            <!-- VOICE PANEL -->
-            <div id="voice-panel">
-                <span class="voice-id-display">Your Voice ID: <b id="my-peer-id">Loading...</b></span>
-                <div style="flex-grow: 1;"></div>
-                <input type="text" id="target-peer-id" class="voice-input" placeholder="Paste ID or click a friend">
-                <button id="call-btn" class="call-btn">Call</button>
-                <button id="hangup-btn" class="hangup-btn">Hang Up</button>
+            
+            <div id="call-status-bar">
+                <span id="call-status-text" style="color: #949ba4;">Your Voice ID: <b id="my-peer-id" style="color: white;">Loading...</b></span>
+                <button id="hangup-btn">Hang Up</button>
                 <audio id="remote-audio" autoplay></audio>
             </div>
 
-            <!-- TEXT CHAT -->
+            <div id="chat-header"># general</div>
+
             <div id="messages"></div>
+            
             <div id="input-area">
-                <input type="text" id="message-input" placeholder="Message #general" disabled>
+                <input type="text" id="message-input" placeholder="Send a message..." disabled>
                 <button id="send-btn" disabled>Send</button>
             </div>
         </div>
     </div>
 
-    <!-- Link to external JavaScript file -->
+    <!-- The logic is now pulled in from app.js -->
     <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -29,6 +29,9 @@ const auth = getAuth(app);
 const db = getDatabase(app); 
 let currentUser = null;
 
+let currentChatRef = null;
+let currentChatUnsubscribe = null;
+
 // --- VOICE CALLING LOGIC (PeerJS) ---
 let peer = null;
 let currentCall = null;
@@ -54,7 +57,7 @@ function initVoiceChat() {
 
 function setupCallUI(call) {
     currentCall = call;
-    document.getElementById('call-btn').style.display = 'none';
+    document.getElementById('call-status-text').innerHTML = `<span style="color: #23a559; font-weight: bold;">📞 Call in progress</span>`;
     document.getElementById('hangup-btn').style.display = 'inline-block';
 
     call.on('stream', (remoteStream) => {
@@ -65,7 +68,7 @@ function setupCallUI(call) {
 }
 
 function resetCallUI() {
-    document.getElementById('call-btn').style.display = 'inline-block';
+    document.getElementById('call-status-text').innerHTML = `Your Voice ID: <b style="color: white;">${currentUser.uid}</b>`;
     document.getElementById('hangup-btn').style.display = 'none';
     
     if (currentCall) currentCall.close();
@@ -75,41 +78,63 @@ function resetCallUI() {
     document.getElementById('remote-audio').srcObject = null;
 }
 
-document.getElementById('call-btn').addEventListener('click', () => {
-    const targetId = document.getElementById('target-peer-id').value.trim();
-    if (!targetId) return alert("Please enter an ID to call.");
-
-    navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-        .then((stream) => {
-            localAudioStream = stream;
-            const call = peer.call(targetId, stream);
-            setupCallUI(call);
-        })
-        .catch((err) => alert("Microphone access denied."));
-});
-
 document.getElementById('hangup-btn').addEventListener('click', resetCallUI);
 
 
-// --- AUTH, CHAT & FRIENDS LOGIC ---
+// --- CHAT SWITCHING LOGIC ---
+function switchChat(chatPath, chatTitle) {
+    document.getElementById('chat-header').innerText = chatTitle;
+    document.getElementById('messages').innerHTML = '';
+    
+    if (currentChatUnsubscribe) {
+        currentChatUnsubscribe(); 
+    }
+    
+    currentChatRef = ref(db, chatPath);
+    currentChatUnsubscribe = onChildAdded(currentChatRef, (snapshot) => {
+        const data = snapshot.val();
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message-block';
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'sender-name';
+        nameSpan.innerText = data.name;
+        
+        const textSpan = document.createElement('span');
+        textSpan.innerText = data.text;
+        
+        msgDiv.appendChild(nameSpan);
+        msgDiv.appendChild(textSpan);
+        document.getElementById('messages').appendChild(msgDiv);
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    });
+}
+
+document.getElementById('general-channel-btn').addEventListener('click', () => {
+    switchChat('channels/general', '# general');
+});
+
+
+// --- AUTH & FRIENDS LOGIC ---
 const authScreen = document.getElementById('auth-screen');
 const appContainer = document.getElementById('app-container');
-const messagesDiv = document.getElementById('messages');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
-const chatRef = ref(db, 'channels/general');
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
         authScreen.style.display = 'none';
         appContainer.style.display = window.innerWidth <= 768 ? 'flex' : 'flex';
+        
         messageInput.disabled = false;
         sendBtn.disabled = false;
-        
         document.getElementById('current-username').innerText = user.displayName || user.email.split('@')[0];
 
         if(!peer) initVoiceChat(); 
+        
+        // Default to general channel on login
+        switchChat('channels/general', '# general');
         
         // Load friends list
         document.getElementById('friends-list').innerHTML = '';
@@ -117,19 +142,35 @@ onAuthStateChanged(auth, (user) => {
         
         onChildAdded(myFriendsRef, (snapshot) => {
             const friend = snapshot.val();
+            
             const div = document.createElement('div');
             div.className = 'friend-item';
             
             const nameSpan = document.createElement('span');
-            nameSpan.innerText = friend.name;
+            nameSpan.innerText = '@ ' + friend.name;
+            nameSpan.style.flexGrow = '1';
+            
+            nameSpan.addEventListener('click', () => {
+                const uid1 = currentUser.uid;
+                const uid2 = friend.voiceId; 
+                const dmPath = uid1 < uid2 ? `dms/${uid1}_${uid2}` : `dms/${uid2}_${uid1}`;
+                switchChat(dmPath, '@ ' + friend.name);
+            });
             
             const callFriendBtn = document.createElement('button');
             callFriendBtn.className = 'friend-call-btn';
-            callFriendBtn.innerText = 'Call';
+            callFriendBtn.innerText = '📞';
+            callFriendBtn.title = 'Call Friend';
             
-            callFriendBtn.addEventListener('click', () => {
-                document.getElementById('target-peer-id').value = friend.voiceId;
-                document.getElementById('call-btn').click();
+            callFriendBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+                    .then((stream) => {
+                        localAudioStream = stream;
+                        const call = peer.call(friend.voiceId, stream);
+                        setupCallUI(call);
+                    })
+                    .catch((err) => alert("Microphone access denied."));
             });
             
             div.appendChild(nameSpan);
@@ -141,10 +182,10 @@ onAuthStateChanged(auth, (user) => {
         currentUser = null;
         authScreen.style.display = 'flex';
         appContainer.style.display = 'none';
+        if (currentChatUnsubscribe) currentChatUnsubscribe();
     }
 });
 
-// Profile and Auth Buttons
 document.getElementById('add-friend-btn').addEventListener('click', () => {
     const fName = document.getElementById('friend-name-input').value.trim();
     const fId = document.getElementById('friend-id-input').value.trim();
@@ -184,33 +225,14 @@ document.getElementById('email-login-btn').addEventListener('click', () => {
 
 document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
-// Chat sending and receiving
 function sendMessage() {
     const text = messageInput.value.trim();
-    if (text && currentUser) {
+    if (text && currentUser && currentChatRef) {
         const displayName = currentUser.displayName || currentUser.email.split('@')[0];
-        push(chatRef, { name: displayName, text: text, timestamp: Date.now() });
+        push(currentChatRef, { name: displayName, text: text, timestamp: Date.now() });
         messageInput.value = '';
     }
 }
 
-sendBtn.addEventListener('click', sendMessage);
-messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
-
-onChildAdded(chatRef, (snapshot) => {
-    const data = snapshot.val();
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'message-block';
-    
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'sender-name';
-    nameSpan.innerText = data.name;
-    
-    const textSpan = document.createElement('span');
-    textSpan.innerText = data.text;
-    
-    msgDiv.appendChild(nameSpan);
-    msgDiv.appendChild(textSpan);
-    document.getElementById('messages').appendChild(msgDiv);
-    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-});
+document.getElementById('send-btn').addEventListener('click', sendMessage);
+document.getElementById('message-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
