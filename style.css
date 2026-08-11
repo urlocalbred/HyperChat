@@ -1,41 +1,58 @@
-/* Resets the page so it touches the edges */
-body {
-    margin: 0;
-    font-family: sans-serif;
-}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: sans-serif; background: #313338; color: white; }
 
-/* The main wrapper filling the screen */
-#app-container {
-    display: flex; 
-    height: 100vh; 
-}
+/* Auth Screen */
+#auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+.auth-box { background: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; width: 90%; max-width: 350px; }
+.auth-input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #1e1f22; color: white; }
+.auth-btn { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; font-weight: bold; }
+.google-btn { background: white; color: black; }
 
-/* The left sidebar */
-#sidebar {
-    width: 200px; 
-    background: #2b2d31; 
-    color: white; 
-    padding: 20px;
-}
+/* Layout */
+#app-container { display: none; height: 100vh; display: flex; }
+#sidebar { width: 250px; background: #2b2d31; color: white; padding: 20px; display: flex; flex-direction: column; }
+#brand { font-size: 1.2em; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #1e1f22; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+#logout-btn { background: #da373c; padding: 5px 10px; border-radius: 4px; border: none; color: white; cursor: pointer; font-size: 0.8em; }
 
-/* The right chat area */
-#main-chat {
-    flex-grow: 1; 
-    display: flex; 
-    flex-direction: column; 
-    background: #313338; 
-    color: white;
-}
+/* Channels */
+.active-channel { color: white; background: #3f4147; padding: 5px; border-radius: 4px; }
+.inactive-channel { color: #949ba4; }
 
-/* The message history box */
-#messages {
-    flex-grow: 1; 
-    padding: 20px; 
-    overflow-y: auto;
-}
+/* Friends List & Profile */
+.sidebar-section { margin-top: 15px; border-top: 1px solid #1e1f22; padding-top: 15px; }
+#friends-list { margin-bottom: 10px; max-height: 150px; overflow-y: auto; }
+.friend-item { display: flex; justify-content: space-between; align-items: center; background: #1e1f22; padding: 8px; margin-bottom: 5px; border-radius: 4px; font-size: 0.9em; }
+.friend-call-btn { background: #23a559; border: none; color: white; border-radius: 3px; cursor: pointer; padding: 4px 8px; font-size: 0.8em; }
+.friend-inputs { display: flex; gap: 5px; flex-direction: column; }
+.friend-inputs input { padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; }
+#add-friend-btn { background: #2b2d31; border: 1px solid #5865F2; color: #5865F2; border-radius: 3px; cursor: pointer; padding: 6px; }
 
-/* The bottom typing box */
-#input-area {
-    padding: 20px; 
-    background: #2b2d31;
+#user-profile { margin-top: auto; border-top: 1px solid #1e1f22; padding-top: 15px; }
+.profile-label { font-size: 0.8em; color: #949ba4; margin-bottom: 5px; }
+#current-username { font-weight: bold; margin-bottom: 10px; color: white; }
+#username-input { width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white; }
+#save-username-btn { background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px; }
+
+/* Chat Area */
+#main-chat { flex-grow: 1; display: flex; flex-direction: column; background: #313338; color: white; overflow: hidden; }
+#messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.message-block { display: flex; flex-direction: column; }
+.sender-name { font-weight: bold; font-size: 0.9em; color: #5865F2; margin-bottom: 2px; }
+#input-area { padding: 20px; background: #2b2d31; display: flex; gap: 10px; }
+#message-input { flex-grow: 1; padding: 10px; border-radius: 5px; border: none; background: #383a40; color: white; }
+#send-btn { padding: 10px 20px; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; }
+
+/* Voice Panel */
+#voice-panel { background: #1e1f22; padding: 15px 20px; display: flex; gap: 15px; align-items: center; border-bottom: 1px solid #2b2d31; flex-wrap: wrap; }
+.voice-id-display { font-size: 0.9em; color: #949ba4; }
+.voice-id-display b { color: white; }
+.voice-input { padding: 8px; border-radius: 4px; border: none; background: #383a40; color: white; flex-grow: 1; min-width: 150px; }
+.call-btn { padding: 8px 15px; border-radius: 4px; border: none; background: #23a559; color: white; cursor: pointer; font-weight: bold; }
+.hangup-btn { padding: 8px 15px; border-radius: 4px; border: none; background: #da373c; color: white; cursor: pointer; font-weight: bold; display: none; }
+
+/* Mobile Layout Fixes */
+@media (max-width: 768px) {
+    #app-container { flex-direction: column; }
+    #sidebar { width: 100%; height: auto; max-height: 40vh; overflow-y: auto; border-bottom: 2px solid #1e1f22; }
+    #main-chat { height: 60vh; }
 }
