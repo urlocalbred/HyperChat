@@ -35,7 +35,7 @@ let currentCall = null;
 let localAudioStream = null;
 
 function initVoiceChat() {
-    peer = new Peer(); 
+    peer = new Peer(currentUser.uid); 
     
     peer.on('open', (id) => {
         document.getElementById('my-peer-id').innerText = id;
