@@ -4,35 +4,31 @@
     <meta charset="UTF-8">
     <title>HyperChat</title>
     
-    <!-- Import PeerJS for Voice Calling -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
-    <!-- THE DESIGN (CSS) -->
     <style>
         body { margin: 0; font-family: sans-serif; background: #313338; color: white; }
         
-        /* Login Screen */
         #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
         .auth-box { background: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; width: 300px; }
         .auth-input { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #1e1f22; color: white; }
         .auth-btn { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; font-weight: bold; }
         .google-btn { background: white; color: black; }
 
-        /* App Layout */
         #app-container { display: none; height: 100vh; }
-        #sidebar { width: 200px; background: #2b2d31; color: white; padding: 20px; }
+        
+        /* Note: Added display: flex and flex-direction: column to push the profile box to the bottom */
+        #sidebar { width: 200px; background: #2b2d31; color: white; padding: 20px; display: flex; flex-direction: column; }
         #brand { font-size: 1.2em; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #1e1f22; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         #logout-btn { background: #da373c; padding: 5px 10px; border-radius: 4px; border: none; color: white; cursor: pointer; font-size: 0.8em; }
         
         #main-chat { flex-grow: 1; display: flex; flex-direction: column; background: #313338; color: white; }
         
-        /* Voice Panel */
         #voice-panel { background: #1e1f22; padding: 15px 20px; display: flex; gap: 15px; align-items: center; border-bottom: 1px solid #2b2d31; }
         .voice-input { padding: 8px; border-radius: 4px; border: none; background: #383a40; color: white; }
         .call-btn { padding: 8px 15px; border-radius: 4px; border: none; background: #23a559; color: white; cursor: pointer; font-weight: bold; }
         .hangup-btn { padding: 8px 15px; border-radius: 4px; border: none; background: #da373c; color: white; cursor: pointer; font-weight: bold; display: none; }
         
-        /* Text Chat */
         #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         .message-block { display: flex; flex-direction: column; }
         .sender-name { font-weight: bold; font-size: 0.9em; color: #5865F2; margin-bottom: 2px; }
@@ -58,10 +54,22 @@
     <!-- 2. CHAT APP SCREEN -->
     <div id="app-container">
         <div id="sidebar">
-            <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
-            <h3>Channels</h3>
-            <p style="color: white; background: #3f4147; padding: 5px; border-radius: 4px;"># general</p>
-            <p style="color: #949ba4;">🔊 voice</p>
+            <div>
+                <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
+                <h3>Channels</h3>
+                <p style="color: white; background: #3f4147; padding: 5px; border-radius: 4px;"># general</p>
+                <p style="color: #949ba4;">🔊 voice</p>
+            </div>
+            
+            <!-- NEW: USER PROFILE AREA -->
+            <div id="user-profile" style="margin-top: auto; border-top: 1px solid #1e1f22; padding-top: 15px;">
+                <div style="font-size: 0.8em; color: #949ba4; margin-bottom: 5px;">LOGGED IN AS</div>
+                <div id="current-username" style="font-weight: bold; margin-bottom: 10px; color: white;">Loading...</div>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="username-input" placeholder="New name..." style="width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
+                    <button id="save-username-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px;">Save</button>
+                </div>
+            </div>
         </div>
 
         <div id="main-chat">
@@ -87,8 +95,9 @@
 
     <!-- 3. FIREBASE & PEERJS LOGIC -->
     <script type="module">
+        // Notice we added 'updateProfile' to the import list here
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
         // ==========================================
@@ -180,7 +189,7 @@
         document.getElementById('hangup-btn').addEventListener('click', resetCallUI);
 
 
-        // --- AUTHENTICATION & DATABASE LOGIC ---
+        // --- AUTHENTICATION, PROFILE & DATABASE LOGIC ---
         const authScreen = document.getElementById('auth-screen');
         const appContainer = document.getElementById('app-container');
         const messagesDiv = document.getElementById('messages');
@@ -196,11 +205,28 @@
                 messageInput.disabled = false;
                 sendBtn.disabled = false;
                 
+                // Set the display name in the sidebar
+                document.getElementById('current-username').innerText = user.displayName || user.email.split('@')[0];
+
                 if(!peer) initVoiceChat(); 
             } else {
                 currentUser = null;
                 authScreen.style.display = 'flex';
                 appContainer.style.display = 'none';
+            }
+        });
+        
+        // NEW: Save custom username logic
+        document.getElementById('save-username-btn').addEventListener('click', () => {
+            const newName = document.getElementById('username-input').value.trim();
+            if (newName && currentUser) {
+                updateProfile(currentUser, { displayName: newName })
+                    .then(() => {
+                        // Update the sidebar text instantly
+                        document.getElementById('current-username').innerText = newName;
+                        document.getElementById('username-input').value = '';
+                    })
+                    .catch(err => alert("Error updating name: " + err.message));
             }
         });
 
@@ -224,6 +250,7 @@
         function sendMessage() {
             const text = messageInput.value.trim();
             if (text && currentUser) {
+                // It will now pull your updated custom username!
                 const displayName = currentUser.displayName || currentUser.email.split('@')[0];
                 push(chatRef, { name: displayName, text: text, timestamp: Date.now() });
                 messageInput.value = '';
