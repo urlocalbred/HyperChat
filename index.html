@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HyperChat</title>
+    
+    <!-- THE DESIGN (CSS) -->
+    <style>
+        body { margin: 0; font-family: sans-serif; background: #313338; color: white; }
+        
+        /* Login Screen Styles */
+        #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .auth-box { background: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; width: 300px; }
+        .auth-input { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #1e1f22; color: white; }
+        .auth-btn { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; font-weight: bold; }
+        .google-btn { background: white; color: black; }
+
+        /* Chat Layout Styles (Hidden by default) */
+        #app-container { display: none; height: 100vh; }
+        #sidebar { width: 200px; background: #2b2d31; color: white; padding: 20px; }
+        #brand { font-size: 1.2em; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #1e1f22; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        #logout-btn { background: #da373c; padding: 5px 10px; border-radius: 4px; border: none; color: white; cursor: pointer; font-size: 0.8em; }
+        
+        #main-chat { flex-grow: 1; display: flex; flex-direction: column; background: #313338; color: white; }
+        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message-block { display: flex; flex-direction: column; }
+        .sender-name { font-weight: bold; font-size: 0.9em; color: #5865F2; margin-bottom: 2px; }
+        
+        #input-area { padding: 20px; background: #2b2d31; display: flex; gap: 10px; }
+        #message-input { flex-grow: 1; padding: 10px; border-radius: 5px; border: none; background: #383a40; color: white; }
+        #send-btn { padding: 10px 20px; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. LOGIN SCREEN -->
+    <div id="auth-screen">
+        <div class="auth-box">
+            <h2>Welcome to HyperChat</h2>
+            <input type="email" id="email" class="auth-input" placeholder="Email">
+            <input type="password" id="password" class="auth-input" placeholder="Password">
+            <button id="email-login-btn" class="auth-btn">Log In / Sign Up</button>
+            <p>or</p>
+            <button id="google-login-btn" class="auth-btn google-btn">Sign in with Google</button>
+        </div>
+    </div>
+
+    <!-- 2. CHAT APP SCREEN -->
+    <div id="app-container">
+        <div id="sidebar">
+            <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
+            <h3>Channels</h3>
+            <p style="color: white; background: #3f4147; padding: 5px; border-radius: 4px;"># general</p>
+            <p style="color: #949ba4;">🔊 voice</p>
+        </div>
+
+        <div id="main-chat">
+            <div id="messages"></div>
+            
+            <div id="input-area">
+                <input type="text" id="message-input" placeholder="Message #general" disabled>
+                <button id="send-btn" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. FIREBASE LOGIC -->
+    <script type="module">
+        // Import Auth AND Database tools
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // ==========================================
+        // PASTE YOUR FIREBASE CONFIG HERE
+        const firebaseConfig = {
+
+        apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
+
+        authDomain: "hyperchat-c8eaa.firebaseapp.com",
+
+        databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
+
+        projectId: "hyperchat-c8eaa",
+
+        storageBucket: "hyperchat-c8eaa.firebasestorage.app",
+
+        messagingSenderId: "379852906414",
+
+        appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
+
+        };
+
+        // ==========================================
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app); 
+
+        let currentUser = null;
+
+        // UI Elements
+        const authScreen = document.getElementById('auth-screen');
+        const appContainer = document.getElementById('app-container');
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        // --- AUTHENTICATION LOGIC ---
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                authScreen.style.display = 'none';
+                appContainer.style.display = 'flex';
+                
+                // Enable inputs
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+            } else {
+                currentUser = null;
+                authScreen.style.display = 'flex';
+                appContainer.style.display = 'none';
+            }
+        });
+
+        document.getElementById('google-login-btn').addEventListener('click', () => {
+            const provider = new GoogleAuthProvider();
+            signInWithPopup(auth, provider).catch(error => alert(error.message));
+        });
+
+        document.getElementById('email-login-btn').addEventListener('click', () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            signInWithEmailAndPassword(auth, email, password)
+                .catch((error) => {
+                    if(error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                        createUserWithEmailAndPassword(auth, email, password).catch(err => alert(err.message));
+                    } else {
+                        alert(error.message);
+                    }
+                });
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+
+        // --- DATABASE LOGIC ---
+        
+        // Point to the 'general' channel
+        const chatRef = ref(db, 'channels/general');
+
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (text && currentUser) {
+                const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+                
+                push(chatRef, {
+                    name: displayName,
+                    text: text,
+                    timestamp: Date.now()
+                });
+                messageInput.value = '';
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Listen for new messages
+        onChildAdded(chatRef, (snapshot) => {
+            const data = snapshot.val();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message-block';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'sender-name';
+            nameSpan.innerText = data.name;
+            
+            const textSpan = document.createElement('span');
+            textSpan.innerText = data.text;
+            
+            msgDiv.appendChild(nameSpan);
+            msgDiv.appendChild(textSpan);
+            messagesDiv.appendChild(msgDiv);
+            
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+    </script>
+</body>
+</html>
