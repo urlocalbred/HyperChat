@@ -5,23 +5,14 @@ import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/fi
 // ==========================================
 // PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-
-  apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
-
-  authDomain: "hyperchat-c8eaa.firebaseapp.com",
-
-  databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
-
-  projectId: "hyperchat-c8eaa",
-
-  storageBucket: "hyperchat-c8eaa.firebasestorage.app",
-
-  messagingSenderId: "379852906414",
-
-  appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
-
+    apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
+    authDomain: "hyperchat-c8eaa.firebaseapp.com",
+    databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
+    projectId: "hyperchat-c8eaa",
+    storageBucket: "hyperchat-c8eaa.firebasestorage.app",
+    messagingSenderId: "379852906414",
+    appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
 };
-;
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
@@ -41,7 +32,7 @@ function formatTime(timestamp) {
 
 // --- BROWSER NOTIFICATIONS ---
 function requestNotificationPermission() {
-    if ("Notification" in window) {
+    if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission();
     }
 }
@@ -138,25 +129,43 @@ document.getElementById('gif-search-input').addEventListener('input', (e) => {
 });
 
 function fetchGIFs(query) {
-    const apiKey = 'GlV1O4WUEa9s6p8B3DksMmyBZSt73A9i'; // Public Giphy key
+    const resultsDiv = document.getElementById('gif-results');
+    resultsDiv.innerHTML = '<span style="font-size:0.8em; color:#949ba4;">Loading...</span>';
+
+    const apiKey = 'GlV1O4WUEa9s6p8B3DksMmyBZSt73A9i'; // Giphy Public Key
     const url = query === 'trending' 
-        ? `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=10`
-        : `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=10`;
+        ? `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=12`
+        : `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=12`;
 
     fetch(url)
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error("Giphy Rate-Limited");
+            return res.json();
+        })
         .then(data => {
-            const resultsDiv = document.getElementById('gif-results');
             resultsDiv.innerHTML = '';
+            if (!data.data || data.data.length === 0) {
+                resultsDiv.innerHTML = '<span style="font-size:0.8em; color:#949ba4;">No GIFs found</span>';
+                return;
+            }
             data.data.forEach(gif => {
                 const img = document.createElement('img');
                 img.src = gif.images.fixed_height_small.url;
+                img.title = gif.title;
                 img.addEventListener('click', () => {
                     sendMediaMessage(gif.images.original.url, 'image');
                     gifPopup.style.display = 'none';
                 });
                 resultsDiv.appendChild(img);
             });
+        })
+        .catch(err => {
+            console.error("GIF Error:", err);
+            resultsDiv.innerHTML = `
+                <div style="font-size:0.8em; color:#da373c; grid-column: span 2; text-align: center;">
+                    Giphy API rate-limited.<br>
+                    <span style="color:#949ba4;">Tip: You can paste any .gif URL directly into the chat box!</span>
+                </div>`;
         });
 }
 
@@ -230,7 +239,7 @@ function switchChat(chatPath, chatTitle) {
         headerDiv.appendChild(timeSpan);
         msgDiv.appendChild(headerDiv);
 
-        // Render message depending on type (text, image/gif, or file)
+        // Render message depending on type
         if (data.type === 'image') {
             const img = document.createElement('img');
             img.src = data.text;
@@ -256,6 +265,8 @@ function switchChat(chatPath, chatTitle) {
         if (data.timestamp > chatJoinTime && data.name !== myName) {
             triggerNotification(data.name, data.type === 'image' ? '📷 Sent an image' : data.text, chatTitle);
         }
+    }, (error) => {
+        alert("Firebase Read Error: " + error.message);
     });
 }
 
@@ -373,18 +384,27 @@ document.getElementById('email-login-btn').addEventListener('click', () => {
 
 document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
+// --- SEND MESSAGE (Detects text vs image URLs) ---
 function sendMessage() {
     const text = messageInput.value.trim();
     if (text && currentUser && currentChatRef) {
         const displayName = currentUser.displayName || currentUser.email.split('@')[0];
         
-        push(currentChatRef, { name: displayName, text: text, timestamp: Date.now() });
+        // Auto-detect if user pasted a GIF or image URL directly
+        const isImageUrl = text.match(/^https?:\/\/.*?\.(gif|png|jpg|jpeg|webp)(\?.*)?$/i);
+
+        push(currentChatRef, {
+            name: displayName,
+            text: text,
+            type: isImageUrl ? 'image' : 'text',
+            timestamp: Date.now()
+        }).catch(err => alert("Message Failed: " + err.message));
+
         messageInput.value = '';
-        
         emojiPopup.style.display = 'none';
         gifPopup.style.display = 'none';
     }
 }
 
-document.getElementById('send-btn').addEventListener('click', sendMessage);
-document.getElementById('message-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+sendBtn.addEventListener('click', sendMessage);
+messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
