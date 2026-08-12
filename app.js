@@ -33,6 +33,15 @@ let currentChatRef = null;
 let currentChatUnsubscribe = null;
 let chatJoinTime = Date.now(); // Used to filter out historical messages
 
+// Converts millisecond timestamp to "4:15 PM"
+function formatTime(timestamp) {
+    if (!timestamp) return '';
+    return new Date(timestamp).toLocaleTimeString([], { 
+        hour: 'numeric', 
+        minute: '2-digit' 
+    });
+}
+
 // --- BROWSER NOTIFICATION HELPER ---
 function requestNotificationPermission() {
     if ("Notification" in window) {
@@ -122,23 +131,30 @@ function switchChat(chatPath, chatTitle) {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'message-block';
         
+        // Header for Name + Time
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'message-header';
+        
         const nameSpan = document.createElement('span');
         nameSpan.className = 'sender-name';
         nameSpan.innerText = data.name;
         
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'message-time';
+        timeSpan.innerText = formatTime(data.timestamp);
+        
+        headerDiv.appendChild(nameSpan);
+        headerDiv.appendChild(timeSpan);
+        
+        // Message Text
         const textSpan = document.createElement('span');
         textSpan.innerText = data.text;
         
-        msgDiv.appendChild(nameSpan);
+        msgDiv.appendChild(headerDiv);
         msgDiv.appendChild(textSpan);
+        
         document.getElementById('messages').appendChild(msgDiv);
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-
-        // Trigger notification ONLY for new incoming messages from other users
-        const myName = currentUser.displayName || currentUser.email.split('@')[0];
-        if (data.timestamp > chatJoinTime && data.name !== myName) {
-            triggerNotification(data.name, data.text, chatTitle);
-        }
     }, (error) => {
         alert("Firebase Read Error: " + error.message);
     });
