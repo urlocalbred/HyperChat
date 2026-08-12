@@ -31,6 +31,26 @@ let currentUser = null;
 
 let currentChatRef = null;
 let currentChatUnsubscribe = null;
+let chatJoinTime = Date.now(); // Used to filter out historical messages
+
+// --- BROWSER NOTIFICATION HELPER ---
+function requestNotificationPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+}
+
+function triggerNotification(sender, text, chatTitle) {
+    if ("Notification" in window && Notification.permission === "granted") {
+        // Only fire if user is tabbed away or window isn't focused
+        if (document.hidden) {
+            new Notification(`${sender} (${chatTitle})`, {
+                body: text,
+                icon: "https://cdn-icons-png.flaticon.com/512/732/732200.png"
+            });
+        }
+    }
+}
 
 // --- VOICE CALLING LOGIC (PeerJS) ---
 let peer = null;
@@ -57,7 +77,7 @@ function initVoiceChat() {
 
 function setupCallUI(call) {
     currentCall = call;
-    document.getElementById('call-status-text').innerHTML = `<span style="color: #23a559; font-weight: bold;">📞 Call in progress</span>`;
+    document.getElementById('call-status-text').innerHTML = `📞 Call in progress`;
     document.getElementById('hangup-btn').style.display = 'inline-block';
 
     call.on('stream', (remoteStream) => {
@@ -68,7 +88,7 @@ function setupCallUI(call) {
 }
 
 function resetCallUI() {
-    document.getElementById('call-status-text').innerHTML = `Your Voice ID: <b style="color: white;">${currentUser.uid}</b>`;
+    document.getElementById('call-status-text').innerHTML = `Your Voice ID: ${currentUser.uid}`;
     document.getElementById('hangup-btn').style.display = 'none';
     
     if (currentCall) currentCall.close();
@@ -86,11 +106,15 @@ function switchChat(chatPath, chatTitle) {
     document.getElementById('chat-header').innerText = chatTitle;
     document.getElementById('messages').innerHTML = '';
     
+    // Reset the join timestamp when switching channels
+    chatJoinTime = Date.now();
+    
     if (currentChatUnsubscribe) {
         currentChatUnsubscribe(); 
     }
     
     currentChatRef = ref(db, chatPath);
+    
     currentChatUnsubscribe = onChildAdded(currentChatRef, (snapshot) => {
         const data = snapshot.val();
         const msgDiv = document.createElement('div');
@@ -107,6 +131,14 @@ function switchChat(chatPath, chatTitle) {
         msgDiv.appendChild(textSpan);
         document.getElementById('messages').appendChild(msgDiv);
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+
+        // Trigger notification ONLY for new incoming messages from other users
+        const myName = currentUser.displayName || currentUser.email.split('@')[0];
+        if (data.timestamp > chatJoinTime && data.name !== myName) {
+            triggerNotification(data.name, data.text, chatTitle);
+        }
+    }, (error) => {
+        alert("Firebase Read Error: " + error.message);
     });
 }
 
@@ -131,9 +163,11 @@ onAuthStateChanged(auth, (user) => {
         sendBtn.disabled = false;
         document.getElementById('current-username').innerText = user.displayName || user.email.split('@')[0];
 
+        // Request browser notification permission on sign-in
+        requestNotificationPermission();
+
         if(!peer) initVoiceChat(); 
         
-        // Default to general channel on login
         switchChat('channels/general', '# general');
         
         // Load friends list
@@ -229,7 +263,12 @@ function sendMessage() {
     const text = messageInput.value.trim();
     if (text && currentUser && currentChatRef) {
         const displayName = currentUser.displayName || currentUser.email.split('@')[0];
-        push(currentChatRef, { name: displayName, text: text, timestamp: Date.now() });
+        
+        push(currentChatRef, { name: displayName, text: text, timestamp: Date.now() })
+            .catch((error) => {
+                alert("Message Failed to Send: " + error.message);
+            });
+            
         messageInput.value = '';
     }
 }
