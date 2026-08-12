@@ -35,20 +35,22 @@ let chatJoinTime = Date.now(); // Used to filter out historical messages
 
 // --- BROWSER NOTIFICATION HELPER ---
 function requestNotificationPermission() {
-    if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission();
+    if ("Notification" in window) {
+        Notification.requestPermission().then((permission) => {
+            console.log("Notification permission status:", permission);
+        });
+    } else {
+        alert("This browser does not support desktop notifications.");
     }
 }
 
 function triggerNotification(sender, text, chatTitle) {
     if ("Notification" in window && Notification.permission === "granted") {
-        // Only fire if user is tabbed away or window isn't focused
-        if (document.hidden) {
-            new Notification(`${sender} (${chatTitle})`, {
-                body: text,
-                icon: "https://cdn-icons-png.flaticon.com/512/732/732200.png"
-            });
-        }
+        // Plays a notification whether tab is hidden or not during testing
+        new Notification(`${sender} (${chatTitle})`, {
+            body: text,
+            icon: "https://cdn-icons-png.flaticon.com/512/732/732200.png"
+        });
     }
 }
 
@@ -243,10 +245,12 @@ document.getElementById('save-username-btn').addEventListener('click', () => {
 });
 
 document.getElementById('google-login-btn').addEventListener('click', () => {
+    requestNotificationPermission(); // <--- Triggers on click
     signInWithPopup(auth, new GoogleAuthProvider()).catch(err => alert(err.message));
 });
 
 document.getElementById('email-login-btn').addEventListener('click', () => {
+    requestNotificationPermission(); // <--- Triggers on click
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     signInWithEmailAndPassword(auth, email, password)
