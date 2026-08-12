@@ -132,7 +132,7 @@ function fetchGIFs(query) {
     const resultsDiv = document.getElementById('gif-results');
     resultsDiv.innerHTML = '<span style="font-size:0.8em; color:#949ba4;">Loading...</span>';
 
-    const apiKey = 'GlV1O4WUEa9s6p8B3DksMmyBZSt73A9i'; // Giphy Public Key
+    const apiKey = 'wXW3rc4aOzpk6GtnZaLBhvlzmGIv9JqN'; // Giphy Public Key
     const url = query === 'trending' 
         ? `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=12`
         : `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=12`;
