@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HyperChat</title>
     
+    <!-- PeerJS for Voice Calling -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
-    <style>
-        .message-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
-        .sender-name { font-weight: bold; font-size: 0.9em; color: #5865F2; }
-        .message-time { font-size: 0.75em; color: #949ba4; }
+    <!-- Emoji Picker Web Component -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
 
+    <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: sans-serif; background: #313338; color: white; }
         
@@ -35,7 +35,7 @@
         .friend-item:hover { background: #383a40; }
         .friend-call-btn { background: #23a559; border: none; color: white; border-radius: 3px; cursor: pointer; padding: 4px 8px; font-size: 0.8em; }
 
-        #main-chat { flex-grow: 1; display: flex; flex-direction: column; background: #313338; color: white; overflow: hidden; }
+        #main-chat { flex-grow: 1; display: flex; flex-direction: column; background: #313338; color: white; overflow: hidden; position: relative; }
         
         #call-status-bar { background: #1e1f22; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2b2d31; font-size: 0.9em; }
         #hangup-btn { background: #da373c; padding: 5px 15px; border-radius: 4px; border: none; color: white; cursor: pointer; font-weight: bold; display: none; }
@@ -44,11 +44,24 @@
         
         #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         .message-block { display: flex; flex-direction: column; }
-        .sender-name { font-weight: bold; font-size: 0.9em; color: #5865F2; margin-bottom: 2px; }
-        
-        #input-area { padding: 20px; background: #2b2d31; display: flex; gap: 10px; }
+        .message-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+        .sender-name { font-weight: bold; font-size: 0.9em; color: #5865F2; }
+        .message-time { font-size: 0.75em; color: #949ba4; }
+        .chat-media-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-top: 5px; }
+
+        #input-area { padding: 20px; background: #2b2d31; display: flex; gap: 10px; align-items: center; position: relative; }
         #message-input { flex-grow: 1; padding: 10px; border-radius: 5px; border: none; background: #383a40; color: white; }
-        #send-btn { padding: 10px 20px; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; }
+        .action-btn { background: #383a40; border: none; color: white; border-radius: 5px; padding: 10px 12px; cursor: pointer; font-weight: bold; }
+        .action-btn:hover { background: #4e5058; }
+        #send-btn { padding: 10px 20px; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; font-weight: bold; }
+
+        /* Popups for Emoji and GIF Pickers */
+        .picker-popup { display: none; position: absolute; bottom: 70px; right: 20px; background: #2b2d31; border: 1px solid #383a40; border-radius: 8px; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        #gif-picker-popup { width: 300px; padding: 10px; }
+        #gif-search-input { width: 100%; padding: 8px; border-radius: 4px; border: none; background: #1e1f22; color: white; margin-bottom: 10px; }
+        #gif-results { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 250px; overflow-y: auto; }
+        #gif-results img { width: 100%; height: 90px; object-fit: cover; border-radius: 4px; cursor: pointer; }
+        #gif-results img:hover { opacity: 0.8; }
 
         @media (max-width: 768px) {
             #app-container { flex-direction: column; }
@@ -109,16 +122,34 @@
 
             <div id="chat-header"># general</div>
 
+            <!-- EMOJI PICKER POPUP -->
+            <div id="emoji-picker-popup" class="picker-popup">
+                <emoji-picker class="dark"></emoji-picker>
+            </div>
+
+            <!-- GIF PICKER POPUP -->
+            <div id="gif-picker-popup" class="picker-popup">
+                <input type="text" id="gif-search-input" placeholder="Search GIFs...">
+                <div id="gif-results"></div>
+            </div>
+
             <div id="messages"></div>
             
             <div id="input-area">
                 <input type="text" id="message-input" placeholder="Send a message..." disabled>
+                
+                <button id="emoji-btn" class="action-btn" title="Add Emoji">😀</button>
+                <button id="gif-btn" class="action-btn" title="Send GIF">GIF</button>
+                
+                <!-- Hidden file input triggered by paperclip button -->
+                <input type="file" id="file-input" style="display: none;">
+                <button id="file-btn" class="action-btn" title="Upload File or Image">📎</button>
+
                 <button id="send-btn" disabled>Send</button>
             </div>
         </div>
     </div>
 
-    <!-- The logic is now pulled in from app.js -->
     <script type="module" src="app.js"></script>
 </body>
 </html>

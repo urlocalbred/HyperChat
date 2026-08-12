@@ -5,23 +5,8 @@ import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/fi
 // ==========================================
 // PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-
-  apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
-
-  authDomain: "hyperchat-c8eaa.firebaseapp.com",
-
-  databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
-
-  projectId: "hyperchat-c8eaa",
-
-  storageBucket: "hyperchat-c8eaa.firebasestorage.app",
-
-  messagingSenderId: "379852906414",
-
-  appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
-
+    // YOUR CONFIG GOES HERE
 };
-
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
@@ -31,31 +16,23 @@ let currentUser = null;
 
 let currentChatRef = null;
 let currentChatUnsubscribe = null;
-let chatJoinTime = Date.now(); // Used to filter out historical messages
+let chatJoinTime = Date.now();
 
-// Converts millisecond timestamp to "4:15 PM"
+// --- TIME FORMATTER ---
 function formatTime(timestamp) {
     if (!timestamp) return '';
-    return new Date(timestamp).toLocaleTimeString([], { 
-        hour: 'numeric', 
-        minute: '2-digit' 
-    });
+    return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-// --- BROWSER NOTIFICATION HELPER ---
+// --- BROWSER NOTIFICATIONS ---
 function requestNotificationPermission() {
     if ("Notification" in window) {
-        Notification.requestPermission().then((permission) => {
-            console.log("Notification permission status:", permission);
-        });
-    } else {
-        alert("This browser does not support desktop notifications.");
+        Notification.requestPermission();
     }
 }
 
 function triggerNotification(sender, text, chatTitle) {
-    if ("Notification" in window && Notification.permission === "granted") {
-        // Plays a notification whether tab is hidden or not during testing
+    if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
         new Notification(`${sender} (${chatTitle})`, {
             body: text,
             icon: "https://cdn-icons-png.flaticon.com/512/732/732200.png"
@@ -88,7 +65,7 @@ function initVoiceChat() {
 
 function setupCallUI(call) {
     currentCall = call;
-    document.getElementById('call-status-text').innerHTML = `📞 Call in progress`;
+    document.getElementById('call-status-text').innerHTML = `<span style="color: #23a559; font-weight: bold;">📞 Call in progress</span>`;
     document.getElementById('hangup-btn').style.display = 'inline-block';
 
     call.on('stream', (remoteStream) => {
@@ -99,7 +76,7 @@ function setupCallUI(call) {
 }
 
 function resetCallUI() {
-    document.getElementById('call-status-text').innerHTML = `Your Voice ID: ${currentUser.uid}`;
+    document.getElementById('call-status-text').innerHTML = `Your Voice ID: <b style="color: white;">${currentUser.uid}</b>`;
     document.getElementById('hangup-btn').style.display = 'none';
     
     if (currentCall) currentCall.close();
@@ -112,12 +89,104 @@ function resetCallUI() {
 document.getElementById('hangup-btn').addEventListener('click', resetCallUI);
 
 
+// --- EMOJI, GIF & FILE ATTACHMENTS LOGIC ---
+const emojiBtn = document.getElementById('emoji-btn');
+const emojiPopup = document.getElementById('emoji-picker-popup');
+const gifBtn = document.getElementById('gif-btn');
+const gifPopup = document.getElementById('gif-picker-popup');
+const fileBtn = document.getElementById('file-btn');
+const fileInput = document.getElementById('file-input');
+
+// Toggle Emoji Picker
+emojiBtn.addEventListener('click', () => {
+    gifPopup.style.display = 'none';
+    emojiPopup.style.display = emojiPopup.style.display === 'block' ? 'none' : 'block';
+});
+
+// Select Emoji
+document.querySelector('emoji-picker').addEventListener('emoji-click', (e) => {
+    document.getElementById('message-input').value += e.detail.unicode;
+});
+
+// Toggle GIF Picker
+gifBtn.addEventListener('click', () => {
+    emojiPopup.style.display = 'none';
+    const isVisible = gifPopup.style.display === 'block';
+    gifPopup.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) fetchGIFs('trending');
+});
+
+// Search GIFs from Giphy API
+document.getElementById('gif-search-input').addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    fetchGIFs(query || 'trending');
+});
+
+function fetchGIFs(query) {
+    const apiKey = 'GlV1O4WUEa9s6p8B3DksMmyBZSt73A9i'; // Public Giphy key
+    const url = query === 'trending' 
+        ? `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=10`
+        : `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=10`;
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            const resultsDiv = document.getElementById('gif-results');
+            resultsDiv.innerHTML = '';
+            data.data.forEach(gif => {
+                const img = document.createElement('img');
+                img.src = gif.images.fixed_height_small.url;
+                img.addEventListener('click', () => {
+                    sendMediaMessage(gif.images.original.url, 'image');
+                    gifPopup.style.display = 'none';
+                });
+                resultsDiv.appendChild(img);
+            });
+        });
+}
+
+// File & Image Uploads
+fileBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+        return alert("File is too large! Please choose a file under 3MB.");
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const fileData = event.target.result;
+        const isImage = file.type.startsWith('image/');
+        sendMediaMessage(fileData, isImage ? 'image' : 'file', file.name);
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = ''; // Reset input
+});
+
+function sendMediaMessage(content, type, fileName = '') {
+    if (currentUser && currentChatRef) {
+        const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+        push(currentChatRef, {
+            name: displayName,
+            text: content,
+            type: type,
+            fileName: fileName,
+            timestamp: Date.now()
+        });
+    }
+}
+
+
 // --- CHAT SWITCHING LOGIC ---
 function switchChat(chatPath, chatTitle) {
     document.getElementById('chat-header').innerText = chatTitle;
     document.getElementById('messages').innerHTML = '';
     
-    // Reset the join timestamp when switching channels
+    emojiPopup.style.display = 'none';
+    gifPopup.style.display = 'none';
     chatJoinTime = Date.now();
     
     if (currentChatUnsubscribe) {
@@ -131,7 +200,6 @@ function switchChat(chatPath, chatTitle) {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'message-block';
         
-        // Header for Name + Time
         const headerDiv = document.createElement('div');
         headerDiv.className = 'message-header';
         
@@ -145,18 +213,34 @@ function switchChat(chatPath, chatTitle) {
         
         headerDiv.appendChild(nameSpan);
         headerDiv.appendChild(timeSpan);
-        
-        // Message Text
-        const textSpan = document.createElement('span');
-        textSpan.innerText = data.text;
-        
         msgDiv.appendChild(headerDiv);
-        msgDiv.appendChild(textSpan);
-        
+
+        // Render message depending on type (text, image/gif, or file)
+        if (data.type === 'image') {
+            const img = document.createElement('img');
+            img.src = data.text;
+            img.className = 'chat-media-img';
+            msgDiv.appendChild(img);
+        } else if (data.type === 'file') {
+            const fileLink = document.createElement('a');
+            fileLink.href = data.text;
+            fileLink.download = data.fileName || 'download';
+            fileLink.style.color = '#5865F2';
+            fileLink.innerText = `📎 ${data.fileName || 'Download File'}`;
+            msgDiv.appendChild(fileLink);
+        } else {
+            const textSpan = document.createElement('span');
+            textSpan.innerText = data.text;
+            msgDiv.appendChild(textSpan);
+        }
+
         document.getElementById('messages').appendChild(msgDiv);
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-    }, (error) => {
-        alert("Firebase Read Error: " + error.message);
+
+        const myName = currentUser.displayName || currentUser.email.split('@')[0];
+        if (data.timestamp > chatJoinTime && data.name !== myName) {
+            triggerNotification(data.name, data.type === 'image' ? '📷 Sent an image' : data.text, chatTitle);
+        }
     });
 }
 
@@ -181,14 +265,10 @@ onAuthStateChanged(auth, (user) => {
         sendBtn.disabled = false;
         document.getElementById('current-username').innerText = user.displayName || user.email.split('@')[0];
 
-        // Request browser notification permission on sign-in
-        requestNotificationPermission();
-
         if(!peer) initVoiceChat(); 
         
         switchChat('channels/general', '# general');
         
-        // Load friends list
         document.getElementById('friends-list').innerHTML = '';
         const myFriendsRef = ref(db, 'users/' + user.uid + '/friends');
         
@@ -212,7 +292,6 @@ onAuthStateChanged(auth, (user) => {
             const callFriendBtn = document.createElement('button');
             callFriendBtn.className = 'friend-call-btn';
             callFriendBtn.innerText = '📞';
-            callFriendBtn.title = 'Call Friend';
             
             callFriendBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
@@ -261,12 +340,12 @@ document.getElementById('save-username-btn').addEventListener('click', () => {
 });
 
 document.getElementById('google-login-btn').addEventListener('click', () => {
-    requestNotificationPermission(); // <--- Triggers on click
+    requestNotificationPermission();
     signInWithPopup(auth, new GoogleAuthProvider()).catch(err => alert(err.message));
 });
 
 document.getElementById('email-login-btn').addEventListener('click', () => {
-    requestNotificationPermission(); // <--- Triggers on click
+    requestNotificationPermission();
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     signInWithEmailAndPassword(auth, email, password)
@@ -284,12 +363,11 @@ function sendMessage() {
     if (text && currentUser && currentChatRef) {
         const displayName = currentUser.displayName || currentUser.email.split('@')[0];
         
-        push(currentChatRef, { name: displayName, text: text, timestamp: Date.now() })
-            .catch((error) => {
-                alert("Message Failed to Send: " + error.message);
-            });
-            
+        push(currentChatRef, { name: displayName, text: text, timestamp: Date.now() });
         messageInput.value = '';
+        
+        emojiPopup.style.display = 'none';
+        gifPopup.style.display = 'none';
     }
 }
 
