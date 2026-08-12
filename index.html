@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HyperChat</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -68,10 +68,54 @@
         #gif-results img:hover { opacity: 0.8; }
 
         @media (max-width: 768px) {
-            #app-container { flex-direction: column; }
-            #sidebar { width: 100%; height: auto; max-height: 40vh; overflow-y: auto; border-bottom: 2px solid #1e1f22; }
-            #main-chat { height: 60vh; }
+        /* Stack sidebar and chat vertically */
+        #app-container { 
+            flex-direction: column; 
+            height: 100vh;
+            height: 100dvh; /* Uses dynamic viewport height on mobile browsers */
         }
+
+        /* Make the sidebar compact so chat has room */
+        #sidebar { 
+            width: 100%; 
+            max-height: 35vh; 
+            overflow-y: auto; 
+            border-bottom: 2px solid #1e1f22; 
+            padding: 12px;
+        }
+
+        /* Force main chat to fill remaining vertical space */
+        #main-chat { 
+            flex-grow: 1; 
+            height: 65vh; 
+        }
+
+        /* Scale down chat input elements so they don't overflow horizontally */
+        #input-area { 
+            padding: 10px; 
+            gap: 5px; 
+        }
+
+        #message-input { 
+            font-size: 16px; /* Prevents iOS/Safari from auto-zooming in when tapping inputs */
+        }
+
+        .action-btn { 
+            padding: 8px 10px; 
+            font-size: 0.9em; 
+        }
+
+        #send-btn { 
+            padding: 8px 14px; 
+        }
+
+        /* Ensure popups fit on small screens */
+        .picker-popup { 
+            right: 10px; 
+            left: 10px; 
+            width: auto !important; 
+        }
+    }
     </style>
 </head>
 <body>
