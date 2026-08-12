@@ -41,12 +41,15 @@
         
         #call-status-bar { background: #1e1f22; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2b2d31; font-size: 0.9em; }
         #hangup-btn { background: #da373c; padding: 5px 15px; border-radius: 4px; border: none; color: white; cursor: pointer; font-weight: bold; display: none; }
+        .call-action-btn { padding: 6px 14px; border-radius: 4px; border: none; color: white; font-weight: bold; cursor: pointer; margin-left: 5px; }
+        #accept-call-btn { background: #23a559; }
+        #decline-call-btn { background: #da373c; }
 
         #chat-header { padding: 15px 20px; border-bottom: 1px solid #2b2d31; font-weight: bold; font-size: 1.1em; }
         
         #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
         
-        /* Updated Message Block for Avatars */
+        /* Message Block */
         .message-block { display: flex; flex-direction: row; align-items: flex-start; }
         .message-content { display: flex; flex-direction: column; }
         .message-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
@@ -68,54 +71,42 @@
         #gif-results img:hover { opacity: 0.8; }
 
         @media (max-width: 768px) {
-        /* Stack sidebar and chat vertically */
-        #app-container { 
-            flex-direction: column; 
-            height: 100vh;
-            height: 100dvh; /* Uses dynamic viewport height on mobile browsers */
+            #app-container { 
+                flex-direction: column; 
+                height: 100vh;
+                height: 100dvh;
+            }
+            #sidebar { 
+                width: 100%; 
+                max-height: 35vh; 
+                overflow-y: auto; 
+                border-bottom: 2px solid #1e1f22; 
+                padding: 12px;
+            }
+            #main-chat { 
+                flex-grow: 1; 
+                height: 65vh; 
+            }
+            #input-area { 
+                padding: 10px; 
+                gap: 5px; 
+            }
+            #message-input { 
+                font-size: 16px;
+            }
+            .action-btn { 
+                padding: 8px 10px; 
+                font-size: 0.9em; 
+            }
+            #send-btn { 
+                padding: 8px 14px; 
+            }
+            .picker-popup { 
+                right: 10px; 
+                left: 10px; 
+                width: auto !important; 
+            }
         }
-
-        /* Make the sidebar compact so chat has room */
-        #sidebar { 
-            width: 100%; 
-            max-height: 35vh; 
-            overflow-y: auto; 
-            border-bottom: 2px solid #1e1f22; 
-            padding: 12px;
-        }
-
-        /* Force main chat to fill remaining vertical space */
-        #main-chat { 
-            flex-grow: 1; 
-            height: 65vh; 
-        }
-
-        /* Scale down chat input elements so they don't overflow horizontally */
-        #input-area { 
-            padding: 10px; 
-            gap: 5px; 
-        }
-
-        #message-input { 
-            font-size: 16px; /* Prevents iOS/Safari from auto-zooming in when tapping inputs */
-        }
-
-        .action-btn { 
-            padding: 8px 10px; 
-            font-size: 0.9em; 
-        }
-
-        #send-btn { 
-            padding: 8px 14px; 
-        }
-
-        /* Ensure popups fit on small screens */
-        .picker-popup { 
-            right: 10px; 
-            left: 10px; 
-            width: auto !important; 
-        }
-    }
     </style>
 </head>
 <body>
@@ -153,7 +144,6 @@
             <div id="user-profile" style="margin-top: auto; border-top: 1px solid #1e1f22; padding-top: 15px;">
                 <div style="font-size: 0.8em; color: #949ba4; margin-bottom: 10px;">LOGGED IN AS</div>
                 
-                <!-- NEW: Profile Display -->
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
                     <img id="my-avatar" src="" class="avatar" style="width: 35px; height: 35px;">
                     <div id="current-username" style="font-weight: bold; color: white;">Loading...</div>
@@ -176,7 +166,11 @@
             
             <div id="call-status-bar">
                 <span id="call-status-text" style="color: #949ba4;">Your Voice ID: <b id="my-peer-id" style="color: white;">Loading...</b></span>
-                <button id="hangup-btn">Hang Up</button>
+                <div id="call-controls">
+                    <button id="accept-call-btn" class="call-action-btn" style="display: none;">Accept</button>
+                    <button id="decline-call-btn" class="call-action-btn" style="display: none;">Decline</button>
+                    <button id="hangup-btn">Hang Up</button>
+                </div>
                 <audio id="remote-audio" autoplay></audio>
             </div>
 

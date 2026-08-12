@@ -30,7 +30,6 @@ function formatTime(timestamp) {
     return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-// Generates a Discord-style initials avatar if a user has no PFP
 function getAvatarUrl(photoURL, name) {
     return photoURL || `https://api.dicebear.com/9.x/initials/svg?seed=${name}&backgroundColor=5865F2`;
 }
@@ -50,42 +49,97 @@ function triggerNotification(sender, text, chatTitle) {
     }
 }
 
-// --- VOICE CALLING LOGIC (PeerJS) ---
+// Escapes raw HTML so users can't inject scripts
+function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
+    );
+}
+
+// Converts raw links (http/https) to clickable HTML links
+function linkify(text) {
+    const safeText = escapeHTML(text);
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return safeText.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #00a8fc; text-decoration: underline;">${url}</a>`;
+    });
+}
+
+// --- VOICE CALLING LOGIC (PeerJS with Accept/Decline) ---
 let peer = null;
 let currentCall = null;
+let incomingCall = null;
 let localAudioStream = null;
+
+const acceptBtn = document.getElementById('accept-call-btn');
+const declineBtn = document.getElementById('decline-call-btn');
+const hangupBtn = document.getElementById('hangup-btn');
 
 function initVoiceChat() {
     peer = new Peer(currentUser.uid); 
     peer.on('open', (id) => { document.getElementById('my-peer-id').innerText = id; });
 
+    // Handle INCOMING Call
     peer.on('call', (call) => {
-        navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-            .then((stream) => {
-                localAudioStream = stream;
-                call.answer(stream);
-                setupCallUI(call);
-            }).catch((err) => alert("Microphone access denied."));
+        incomingCall = call;
+        document.getElementById('call-status-text').innerHTML = `<span style="color: #f1c40f; font-weight: bold;">📞 Incoming Call...</span>`;
+        acceptBtn.style.display = 'inline-block';
+        declineBtn.style.display = 'inline-block';
+        hangupBtn.style.display = 'none';
     });
 }
+
+// User presses ACCEPT
+acceptBtn.addEventListener('click', () => {
+    if (!incomingCall) return;
+    
+    navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+        .then((stream) => {
+            localAudioStream = stream;
+            incomingCall.answer(stream);
+            setupCallUI(incomingCall);
+            incomingCall = null;
+        })
+        .catch((err) => {
+            alert("Microphone access denied.");
+            resetCallUI();
+        });
+});
+
+// User presses DECLINE
+declineBtn.addEventListener('click', () => {
+    if (incomingCall) {
+        incomingCall.close();
+        incomingCall = null;
+    }
+    resetCallUI();
+});
 
 function setupCallUI(call) {
     currentCall = call;
     document.getElementById('call-status-text').innerHTML = `<span style="color: #23a559; font-weight: bold;">📞 Call in progress</span>`;
-    document.getElementById('hangup-btn').style.display = 'inline-block';
-    call.on('stream', (remoteStream) => { document.getElementById('remote-audio').srcObject = remoteStream; });
+    acceptBtn.style.display = 'none';
+    declineBtn.style.display = 'none';
+    hangupBtn.style.display = 'inline-block';
+
+    call.on('stream', (remoteStream) => { 
+        document.getElementById('remote-audio').srcObject = remoteStream; 
+    });
     call.on('close', resetCallUI);
 }
 
 function resetCallUI() {
     document.getElementById('call-status-text').innerHTML = `Your Voice ID: <b style="color: white;">${currentUser.uid}</b>`;
-    document.getElementById('hangup-btn').style.display = 'none';
+    acceptBtn.style.display = 'none';
+    declineBtn.style.display = 'none';
+    hangupBtn.style.display = 'none';
+    
     if (currentCall) currentCall.close();
     if (localAudioStream) localAudioStream.getTracks().forEach(track => track.stop());
     document.getElementById('remote-audio').srcObject = null;
 }
 
-document.getElementById('hangup-btn').addEventListener('click', resetCallUI);
+hangupBtn.addEventListener('click', resetCallUI);
 
 
 // --- MEDIA PICKERS (Emoji, GIF, File) ---
@@ -174,16 +228,13 @@ function switchChat(chatPath, chatTitle) {
     currentChatUnsubscribe = onChildAdded(currentChatRef, (snapshot) => {
         const data = snapshot.val();
         
-        // 1. The main message container row
         const msgDiv = document.createElement('div');
         msgDiv.className = 'message-block';
         
-        // 2. The PFP Avatar Image
         const avatarImg = document.createElement('img');
         avatarImg.className = 'avatar msg-avatar';
         avatarImg.src = getAvatarUrl(data.photoURL, data.name);
         
-        // 3. The column holding Name, Time, and Content
         const contentCol = document.createElement('div');
         contentCol.className = 'message-content';
         
@@ -202,7 +253,6 @@ function switchChat(chatPath, chatTitle) {
         headerDiv.appendChild(timeSpan);
         contentCol.appendChild(headerDiv);
 
-        // 4. Render the actual payload
         if (data.type === 'image') {
             const img = document.createElement('img');
             img.src = data.text;
@@ -217,7 +267,7 @@ function switchChat(chatPath, chatTitle) {
             contentCol.appendChild(fileLink);
         } else {
             const textSpan = document.createElement('span');
-            textSpan.innerText = data.text;
+            textSpan.innerHTML = linkify(data.text); // Render URLs as clickable links safely
             contentCol.appendChild(textSpan);
         }
 
@@ -272,10 +322,9 @@ onAuthStateChanged(auth, (user) => {
             const div = document.createElement('div');
             div.className = 'friend-item';
             
-            // Render Friend Avatar
             const fAvatar = document.createElement('img');
             fAvatar.className = 'avatar friend-avatar';
-            fAvatar.src = getAvatarUrl(null, friend.name); // Using fallback generator for friends
+            fAvatar.src = getAvatarUrl(null, friend.name);
             
             const nameContainer = document.createElement('div');
             nameContainer.style.display = 'flex';
@@ -298,6 +347,8 @@ onAuthStateChanged(auth, (user) => {
             const callFriendBtn = document.createElement('button');
             callFriendBtn.className = 'friend-call-btn';
             callFriendBtn.innerText = '📞';
+            
+            // Initiate OUTGOING call directly on click
             callFriendBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 navigator.mediaDevices.getUserMedia({ video: false, audio: true })
@@ -379,7 +430,7 @@ function sendMediaMessage(content, type, fileName = '') {
         const displayName = currentUser.displayName || currentUser.email.split('@')[0];
         push(currentChatRef, {
             name: displayName,
-            photoURL: currentUser.photoURL || '',  // Attach avatar to message
+            photoURL: currentUser.photoURL || '',
             text: content,
             type: type,
             fileName: fileName,
@@ -396,7 +447,7 @@ function sendMessage() {
 
         push(currentChatRef, {
             name: displayName,
-            photoURL: currentUser.photoURL || '', // Attach avatar to message
+            photoURL: currentUser.photoURL || '',
             text: text,
             type: isImageUrl ? 'image' : 'text',
             timestamp: Date.now()
