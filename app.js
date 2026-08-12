@@ -5,8 +5,23 @@ import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/fi
 // ==========================================
 // PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-    // YOUR CONFIG GOES HERE
+
+  apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
+
+  authDomain: "hyperchat-c8eaa.firebaseapp.com",
+
+  databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
+
+  projectId: "hyperchat-c8eaa",
+
+  storageBucket: "hyperchat-c8eaa.firebasestorage.app",
+
+  messagingSenderId: "379852906414",
+
+  appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
+
 };
+;
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
