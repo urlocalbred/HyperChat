@@ -5,23 +5,14 @@ import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/fi
 // ==========================================
 // PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-
-  apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
-
-  authDomain: "hyperchat-c8eaa.firebaseapp.com",
-
-  databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
-
-  projectId: "hyperchat-c8eaa",
-
-  storageBucket: "hyperchat-c8eaa.firebasestorage.app",
-
-  messagingSenderId: "379852906414",
-
-  appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
-
+    apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
+    authDomain: "hyperchat-c8eaa.firebaseapp.com",
+    databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
+    projectId: "hyperchat-c8eaa",
+    storageBucket: "hyperchat-c8eaa.firebasestorage.app",
+    messagingSenderId: "379852906414",
+    appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
 };
-
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
@@ -33,10 +24,15 @@ let currentChatRef = null;
 let currentChatUnsubscribe = null;
 let chatJoinTime = Date.now();
 
-// --- HELPERS (Time, Notifications, and Links) ---
+// --- HELPERS ---
 function formatTime(timestamp) {
     if (!timestamp) return '';
     return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+// Generates a Discord-style initials avatar if a user has no PFP
+function getAvatarUrl(photoURL, name) {
+    return photoURL || `https://api.dicebear.com/9.x/initials/svg?seed=${name}&backgroundColor=5865F2`;
 }
 
 function requestNotificationPermission() {
@@ -54,22 +50,6 @@ function triggerNotification(sender, text, chatTitle) {
     }
 }
 
-// Escapes raw HTML so users can't send hacking scripts
-function escapeHTML(str) {
-    return str.replace(/[&<>'"]/g, 
-        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
-    );
-}
-
-// Converts URLs into clickable blue links securely
-function linkify(text) {
-    const safeText = escapeHTML(text);
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return safeText.replace(urlRegex, (url) => {
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #00a8fc; text-decoration: underline;">${url}</a>`;
-    });
-}
-
 // --- VOICE CALLING LOGIC (PeerJS) ---
 let peer = null;
 let currentCall = null;
@@ -77,10 +57,7 @@ let localAudioStream = null;
 
 function initVoiceChat() {
     peer = new Peer(currentUser.uid); 
-    
-    peer.on('open', (id) => {
-        document.getElementById('my-peer-id').innerText = id;
-    });
+    peer.on('open', (id) => { document.getElementById('my-peer-id').innerText = id; });
 
     peer.on('call', (call) => {
         navigator.mediaDevices.getUserMedia({ video: false, audio: true })
@@ -88,8 +65,7 @@ function initVoiceChat() {
                 localAudioStream = stream;
                 call.answer(stream);
                 setupCallUI(call);
-            })
-            .catch((err) => alert("Microphone access denied."));
+            }).catch((err) => alert("Microphone access denied."));
     });
 }
 
@@ -97,29 +73,22 @@ function setupCallUI(call) {
     currentCall = call;
     document.getElementById('call-status-text').innerHTML = `<span style="color: #23a559; font-weight: bold;">📞 Call in progress</span>`;
     document.getElementById('hangup-btn').style.display = 'inline-block';
-
-    call.on('stream', (remoteStream) => {
-        document.getElementById('remote-audio').srcObject = remoteStream;
-    });
-
+    call.on('stream', (remoteStream) => { document.getElementById('remote-audio').srcObject = remoteStream; });
     call.on('close', resetCallUI);
 }
 
 function resetCallUI() {
     document.getElementById('call-status-text').innerHTML = `Your Voice ID: <b style="color: white;">${currentUser.uid}</b>`;
     document.getElementById('hangup-btn').style.display = 'none';
-    
     if (currentCall) currentCall.close();
-    if (localAudioStream) {
-        localAudioStream.getTracks().forEach(track => track.stop());
-    }
+    if (localAudioStream) localAudioStream.getTracks().forEach(track => track.stop());
     document.getElementById('remote-audio').srcObject = null;
 }
 
 document.getElementById('hangup-btn').addEventListener('click', resetCallUI);
 
 
-// --- EMOJI, GIF & FILE ATTACHMENTS LOGIC ---
+// --- MEDIA PICKERS (Emoji, GIF, File) ---
 const emojiBtn = document.getElementById('emoji-btn');
 const emojiPopup = document.getElementById('emoji-picker-popup');
 const gifBtn = document.getElementById('gif-btn');
@@ -144,49 +113,32 @@ gifBtn.addEventListener('click', () => {
 });
 
 document.getElementById('gif-search-input').addEventListener('input', (e) => {
-    const query = e.target.value.trim();
-    fetchGIFs(query || 'trending');
+    fetchGIFs(e.target.value.trim() || 'trending');
 });
 
 function fetchGIFs(query) {
     const resultsDiv = document.getElementById('gif-results');
     resultsDiv.innerHTML = '<span style="font-size:0.8em; color:#949ba4;">Loading...</span>';
-
-    const apiKey = 'wXW3rc4aOzpk6GtnZaLBhvlzmGIv9JqN'; // Giphy Public Key
+    const apiKey = 'wXW3rc4aOzpk6GtnZaLBhvlzmGIv9JqN'; 
     const url = query === 'trending' 
         ? `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=12`
         : `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=12`;
 
-    fetch(url)
-        .then(res => {
-            if (!res.ok) throw new Error("Giphy Rate-Limited");
-            return res.json();
-        })
-        .then(data => {
-            resultsDiv.innerHTML = '';
-            if (!data.data || data.data.length === 0) {
-                resultsDiv.innerHTML = '<span style="font-size:0.8em; color:#949ba4;">No GIFs found</span>';
-                return;
-            }
-            data.data.forEach(gif => {
-                const img = document.createElement('img');
-                img.src = gif.images.fixed_height_small.url;
-                img.title = gif.title;
-                img.addEventListener('click', () => {
-                    sendMediaMessage(gif.images.original.url, 'image');
-                    gifPopup.style.display = 'none';
-                });
-                resultsDiv.appendChild(img);
+    fetch(url).then(res => res.json()).then(data => {
+        resultsDiv.innerHTML = '';
+        if (!data.data || data.data.length === 0) return resultsDiv.innerHTML = '<span style="font-size:0.8em; color:#949ba4;">No GIFs found</span>';
+        data.data.forEach(gif => {
+            const img = document.createElement('img');
+            img.src = gif.images.fixed_height_small.url;
+            img.addEventListener('click', () => {
+                sendMediaMessage(gif.images.original.url, 'image');
+                gifPopup.style.display = 'none';
             });
-        })
-        .catch(err => {
-            console.error("GIF Error:", err);
-            resultsDiv.innerHTML = `
-                <div style="font-size:0.8em; color:#da373c; grid-column: span 2; text-align: center;">
-                    Giphy API rate-limited.<br>
-                    <span style="color:#949ba4;">Tip: You can paste any .gif URL directly into the chat box!</span>
-                </div>`;
+            resultsDiv.appendChild(img);
         });
+    }).catch(err => {
+        resultsDiv.innerHTML = `<div style="font-size:0.8em; color:#da373c; grid-column: span 2;">API limited. Paste any .gif URL in chat!</div>`;
+    });
 }
 
 fileBtn.addEventListener('click', () => fileInput.click());
@@ -194,33 +146,16 @@ fileBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    if (file.size > 3 * 1024 * 1024) {
-        return alert("File is too large! Please choose a file under 3MB.");
-    }
-
+    if (file.size > 3 * 1024 * 1024) return alert("File is too large! Max 3MB.");
+    
     const reader = new FileReader();
     reader.onload = (event) => {
         const fileData = event.target.result;
-        const isImage = file.type.startsWith('image/');
-        sendMediaMessage(fileData, isImage ? 'image' : 'file', file.name);
+        sendMediaMessage(fileData, file.type.startsWith('image/') ? 'image' : 'file', file.name);
     };
     reader.readAsDataURL(file);
     fileInput.value = ''; 
 });
-
-function sendMediaMessage(content, type, fileName = '') {
-    if (currentUser && currentChatRef) {
-        const displayName = currentUser.displayName || currentUser.email.split('@')[0];
-        push(currentChatRef, {
-            name: displayName,
-            text: content,
-            type: type,
-            fileName: fileName,
-            timestamp: Date.now()
-        });
-    }
-}
 
 
 // --- CHAT RENDERING LOGIC ---
@@ -232,16 +167,25 @@ function switchChat(chatPath, chatTitle) {
     gifPopup.style.display = 'none';
     chatJoinTime = Date.now();
     
-    if (currentChatUnsubscribe) {
-        currentChatUnsubscribe(); 
-    }
+    if (currentChatUnsubscribe) currentChatUnsubscribe(); 
     
     currentChatRef = ref(db, chatPath);
     
     currentChatUnsubscribe = onChildAdded(currentChatRef, (snapshot) => {
         const data = snapshot.val();
+        
+        // 1. The main message container row
         const msgDiv = document.createElement('div');
         msgDiv.className = 'message-block';
+        
+        // 2. The PFP Avatar Image
+        const avatarImg = document.createElement('img');
+        avatarImg.className = 'avatar msg-avatar';
+        avatarImg.src = getAvatarUrl(data.photoURL, data.name);
+        
+        // 3. The column holding Name, Time, and Content
+        const contentCol = document.createElement('div');
+        contentCol.className = 'message-content';
         
         const headerDiv = document.createElement('div');
         headerDiv.className = 'message-header';
@@ -256,27 +200,30 @@ function switchChat(chatPath, chatTitle) {
         
         headerDiv.appendChild(nameSpan);
         headerDiv.appendChild(timeSpan);
-        msgDiv.appendChild(headerDiv);
+        contentCol.appendChild(headerDiv);
 
-        // Render message depending on type
+        // 4. Render the actual payload
         if (data.type === 'image') {
             const img = document.createElement('img');
             img.src = data.text;
             img.className = 'chat-media-img';
-            msgDiv.appendChild(img);
+            contentCol.appendChild(img);
         } else if (data.type === 'file') {
             const fileLink = document.createElement('a');
             fileLink.href = data.text;
             fileLink.download = data.fileName || 'download';
             fileLink.style.color = '#5865F2';
             fileLink.innerText = `📎 ${data.fileName || 'Download File'}`;
-            msgDiv.appendChild(fileLink);
+            contentCol.appendChild(fileLink);
         } else {
             const textSpan = document.createElement('span');
-            textSpan.innerHTML = linkify(data.text); // Links are created securely here!
-            msgDiv.appendChild(textSpan);
+            textSpan.innerText = data.text;
+            contentCol.appendChild(textSpan);
         }
 
+        msgDiv.appendChild(avatarImg);
+        msgDiv.appendChild(contentCol);
+        
         document.getElementById('messages').appendChild(msgDiv);
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
 
@@ -284,21 +231,23 @@ function switchChat(chatPath, chatTitle) {
         if (data.timestamp > chatJoinTime && data.name !== myName) {
             triggerNotification(data.name, data.type === 'image' ? '📷 Sent an image' : data.text, chatTitle);
         }
-    }, (error) => {
-        alert("Firebase Read Error: " + error.message);
     });
 }
 
-document.getElementById('general-channel-btn').addEventListener('click', () => {
-    switchChat('channels/general', '# general');
-});
+document.getElementById('general-channel-btn').addEventListener('click', () => switchChat('channels/general', '# general'));
 
 
-// --- AUTH & FRIENDS LOGIC ---
+// --- AUTH & PROFILE SETTINGS LOGIC ---
 const authScreen = document.getElementById('auth-screen');
 const appContainer = document.getElementById('app-container');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
+
+function updateSidebarProfile() {
+    const dName = currentUser.displayName || currentUser.email.split('@')[0];
+    document.getElementById('current-username').innerText = dName;
+    document.getElementById('my-avatar').src = getAvatarUrl(currentUser.photoURL, dName);
+}
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -308,26 +257,38 @@ onAuthStateChanged(auth, (user) => {
         
         messageInput.disabled = false;
         sendBtn.disabled = false;
-        document.getElementById('current-username').innerText = user.displayName || user.email.split('@')[0];
+        
+        updateSidebarProfile();
 
         if(!peer) initVoiceChat(); 
-        
         switchChat('channels/general', '# general');
         
+        // Render Friends List
         document.getElementById('friends-list').innerHTML = '';
         const myFriendsRef = ref(db, 'users/' + user.uid + '/friends');
         
         onChildAdded(myFriendsRef, (snapshot) => {
             const friend = snapshot.val();
-            
             const div = document.createElement('div');
             div.className = 'friend-item';
             
-            const nameSpan = document.createElement('span');
-            nameSpan.innerText = '@ ' + friend.name;
-            nameSpan.style.flexGrow = '1';
+            // Render Friend Avatar
+            const fAvatar = document.createElement('img');
+            fAvatar.className = 'avatar friend-avatar';
+            fAvatar.src = getAvatarUrl(null, friend.name); // Using fallback generator for friends
             
-            nameSpan.addEventListener('click', () => {
+            const nameContainer = document.createElement('div');
+            nameContainer.style.display = 'flex';
+            nameContainer.style.alignItems = 'center';
+            nameContainer.style.flexGrow = '1';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.innerText = friend.name;
+            
+            nameContainer.appendChild(fAvatar);
+            nameContainer.appendChild(nameSpan);
+            
+            nameContainer.addEventListener('click', () => {
                 const uid1 = currentUser.uid;
                 const uid2 = friend.voiceId; 
                 const dmPath = uid1 < uid2 ? `dms/${uid1}_${uid2}` : `dms/${uid2}_${uid1}`;
@@ -337,7 +298,6 @@ onAuthStateChanged(auth, (user) => {
             const callFriendBtn = document.createElement('button');
             callFriendBtn.className = 'friend-call-btn';
             callFriendBtn.innerText = '📞';
-            
             callFriendBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 navigator.mediaDevices.getUserMedia({ video: false, audio: true })
@@ -345,11 +305,10 @@ onAuthStateChanged(auth, (user) => {
                         localAudioStream = stream;
                         const call = peer.call(friend.voiceId, stream);
                         setupCallUI(call);
-                    })
-                    .catch((err) => alert("Microphone access denied."));
+                    }).catch(err => alert("Microphone access denied."));
             });
             
-            div.appendChild(nameSpan);
+            div.appendChild(nameContainer);
             div.appendChild(callFriendBtn);
             document.getElementById('friends-list').appendChild(div);
         });
@@ -372,15 +331,25 @@ document.getElementById('add-friend-btn').addEventListener('click', () => {
     }
 });
 
+// Update Username
 document.getElementById('save-username-btn').addEventListener('click', () => {
     const newName = document.getElementById('username-input').value.trim();
     if (newName && currentUser) {
-        updateProfile(currentUser, { displayName: newName })
-            .then(() => {
-                document.getElementById('current-username').innerText = newName;
-                document.getElementById('username-input').value = '';
-            })
-            .catch(err => alert("Error updating name: " + err.message));
+        updateProfile(currentUser, { displayName: newName }).then(() => {
+            updateSidebarProfile();
+            document.getElementById('username-input').value = '';
+        }).catch(err => alert("Error updating name: " + err.message));
+    }
+});
+
+// Update PFP Avatar
+document.getElementById('save-avatar-btn').addEventListener('click', () => {
+    const newPic = document.getElementById('avatar-input').value.trim();
+    if (newPic && currentUser) {
+        updateProfile(currentUser, { photoURL: newPic }).then(() => {
+            updateSidebarProfile();
+            document.getElementById('avatar-input').value = '';
+        }).catch(err => alert("Error updating Avatar: " + err.message));
     }
 });
 
@@ -403,17 +372,31 @@ document.getElementById('email-login-btn').addEventListener('click', () => {
 
 document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
-// --- SEND MESSAGE (Detects text vs image URLs) ---
+
+// --- MESSAGE SENDING LOGIC ---
+function sendMediaMessage(content, type, fileName = '') {
+    if (currentUser && currentChatRef) {
+        const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+        push(currentChatRef, {
+            name: displayName,
+            photoURL: currentUser.photoURL || '',  // Attach avatar to message
+            text: content,
+            type: type,
+            fileName: fileName,
+            timestamp: Date.now()
+        });
+    }
+}
+
 function sendMessage() {
     const text = messageInput.value.trim();
     if (text && currentUser && currentChatRef) {
         const displayName = currentUser.displayName || currentUser.email.split('@')[0];
-        
-        // Auto-detect if user pasted a GIF or image URL directly
         const isImageUrl = text.match(/^https?:\/\/.*?\.(gif|png|jpg|jpeg|webp)(\?.*)?$/i);
 
         push(currentChatRef, {
             name: displayName,
+            photoURL: currentUser.photoURL || '', // Attach avatar to message
             text: text,
             type: isImageUrl ? 'image' : 'text',
             timestamp: Date.now()

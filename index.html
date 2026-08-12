@@ -20,7 +20,7 @@
 
         #app-container { display: none; height: 100vh; display: flex; }
         
-        #sidebar { width: 250px; background: #2b2d31; color: white; padding: 20px; display: flex; flex-direction: column; }
+        #sidebar { width: 260px; background: #2b2d31; color: white; padding: 20px; display: flex; flex-direction: column; }
         #brand { font-size: 1.2em; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #1e1f22; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         #logout-btn { background: #da373c; padding: 5px 10px; border-radius: 4px; border: none; color: white; cursor: pointer; font-size: 0.8em; }
         
@@ -32,6 +32,11 @@
         .friend-item:hover { background: #383a40; }
         .friend-call-btn { background: #23a559; border: none; color: white; border-radius: 3px; cursor: pointer; padding: 4px 8px; font-size: 0.8em; }
 
+        /* Avatar Styles */
+        .avatar { border-radius: 50%; object-fit: cover; }
+        .msg-avatar { width: 40px; height: 40px; margin-right: 15px; }
+        .friend-avatar { width: 28px; height: 28px; margin-right: 10px; }
+
         #main-chat { flex-grow: 1; display: flex; flex-direction: column; background: #313338; color: white; overflow: hidden; position: relative; }
         
         #call-status-bar { background: #1e1f22; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2b2d31; font-size: 0.9em; }
@@ -39,10 +44,13 @@
 
         #chat-header { padding: 15px 20px; border-bottom: 1px solid #2b2d31; font-weight: bold; font-size: 1.1em; }
         
-        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .message-block { display: flex; flex-direction: column; }
-        .message-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
-        .sender-name { font-weight: bold; font-size: 0.9em; color: #5865F2; }
+        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        
+        /* Updated Message Block for Avatars */
+        .message-block { display: flex; flex-direction: row; align-items: flex-start; }
+        .message-content { display: flex; flex-direction: column; }
+        .message-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+        .sender-name { font-weight: bold; font-size: 1em; color: #5865F2; }
         .message-time { font-size: 0.75em; color: #949ba4; }
         .chat-media-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-top: 5px; }
 
@@ -52,7 +60,6 @@
         .action-btn:hover { background: #4e5058; }
         #send-btn { padding: 10px 20px; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; font-weight: bold; }
 
-        /* Popups for Emoji and GIF Pickers */
         .picker-popup { display: none; position: absolute; bottom: 70px; right: 20px; background: #2b2d31; border: 1px solid #383a40; border-radius: 8px; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         #gif-picker-popup { width: 300px; padding: 10px; }
         #gif-search-input { width: 100%; padding: 8px; border-radius: 4px; border: none; background: #1e1f22; color: white; margin-bottom: 10px; }
@@ -100,11 +107,23 @@
             </div>
 
             <div id="user-profile" style="margin-top: auto; border-top: 1px solid #1e1f22; padding-top: 15px;">
-                <div style="font-size: 0.8em; color: #949ba4; margin-bottom: 5px;">LOGGED IN AS</div>
-                <div id="current-username" style="font-weight: bold; margin-bottom: 10px; color: white;">Loading...</div>
-                <div style="display: flex; gap: 5px;">
-                    <input type="text" id="username-input" placeholder="New name..." style="width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
-                    <button id="save-username-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px;">Save</button>
+                <div style="font-size: 0.8em; color: #949ba4; margin-bottom: 10px;">LOGGED IN AS</div>
+                
+                <!-- NEW: Profile Display -->
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <img id="my-avatar" src="" class="avatar" style="width: 35px; height: 35px;">
+                    <div id="current-username" style="font-weight: bold; color: white;">Loading...</div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="username-input" placeholder="New name..." style="width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
+                        <button id="save-username-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px;">Save</button>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="avatar-input" placeholder="PFP Image URL..." style="width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
+                        <button id="save-avatar-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px;">Set</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -136,7 +155,6 @@
                 <button id="emoji-btn" class="action-btn" title="Add Emoji">😀</button>
                 <button id="gif-btn" class="action-btn" title="Send GIF">GIF</button>
                 
-                <!-- Hidden file input triggered by paperclip button -->
                 <input type="file" id="file-input" style="display: none;">
                 <button id="file-btn" class="action-btn" title="Upload File or Image">📎</button>
 
