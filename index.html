@@ -34,7 +34,6 @@
         .friend-item:hover { background: #383a40; }
         .friend-call-btn { background: #23a559; border: none; color: white; border-radius: 3px; cursor: pointer; padding: 4px 8px; font-size: 0.8em; }
 
-        /* Avatar Styles */
         .avatar { border-radius: 50%; object-fit: cover; }
         .msg-avatar { width: 40px; height: 40px; margin-right: 15px; }
         .friend-avatar { width: 28px; height: 28px; margin-right: 10px; }
@@ -51,13 +50,19 @@
         
         #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
         
-        /* Message Block */
         .message-block { display: flex; flex-direction: row; align-items: flex-start; }
         .message-content { display: flex; flex-direction: column; }
-        .message-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+        .message-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
         .sender-name { font-weight: bold; font-size: 1em; color: #5865F2; }
         .message-time { font-size: 0.75em; color: #949ba4; }
         .chat-media-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-top: 5px; }
+
+        /* ROLE BADGES */
+        .role-badge { font-size: 0.7em; padding: 2px 6px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        .role-owner { background: #e0245e; color: white; }
+        .role-co-owner { background: #ffad1f; color: black; }
+        .role-admin { background: #23a559; color: white; }
+        .role-og { background: #794bc4; color: white; }
 
         #input-area { padding: 20px; background: #2b2d31; display: flex; gap: 10px; align-items: center; position: relative; }
         #message-input { flex-grow: 1; padding: 10px; border-radius: 5px; border: none; background: #383a40; color: white; }
@@ -116,7 +121,6 @@
             <div>
                 <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
                 <h3>Channels</h3>
-                <!-- NEW CHANNEL LIST -->
                 <div id="welcome-btn" class="channel-link active-chat-link"># welcome</div>
                 <div id="announcements-btn" class="channel-link"># announcements</div>
                 <div id="general-1-btn" class="channel-link"># general-1</div>
@@ -136,11 +140,24 @@
                 </div>
             </div>
 
-            <!-- ADMIN PANEL SIDEBAR SECTION -->
             <div id="admin-panel">
                 <h4>⚙️ Admin Panel</h4>
                 <button id="clear-channel-btn" class="admin-btn">🗑️ Clear Current Chat</button>
                 <button id="system-announcement-btn" class="admin-btn" style="background: #e67e22;">📢 Send Announcement</button>
+                
+                <!-- OWNER ONLY TOOLS -->
+                <div id="role-assigner" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #da373c; display: none;">
+                    <h4 style="color: #ffad1f; margin-top: 0;">👑 Owner Tools</h4>
+                    <input type="text" id="role-uid-input" placeholder="User Voice ID (UID)" style="width: 100%; padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; margin-bottom: 5px; font-size: 0.8em;">
+                    <select id="role-select" style="width: 100%; padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; margin-bottom: 5px; font-size: 0.8em;">
+                        <option value="">User (Remove Role)</option>
+                        <option value="Og">Og</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Co-owner">Co-owner</option>
+                        <option value="Owner">Owner</option>
+                    </select>
+                    <button id="assign-role-btn" class="admin-btn" style="background: #23a559;">Assign Role</button>
+                </div>
             </div>
 
             <div id="user-profile" style="margin-top: auto; border-top: 1px solid #1e1f22; padding-top: 15px;">
