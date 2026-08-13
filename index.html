@@ -17,6 +17,8 @@
         .auth-input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #1e1f22; color: white; }
         .auth-btn { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; font-weight: bold; }
         .google-btn { background: white; color: black; }
+        #forgot-password-link { color: #5865F2; font-size: 0.85em; text-decoration: none; display: block; text-align: right; margin-bottom: 10px; margin-top: -5px; }
+        #forgot-password-link:hover { text-decoration: underline; }
 
         #app-container { display: none; height: 100vh; display: flex; }
         
@@ -71,41 +73,14 @@
         #gif-results img:hover { opacity: 0.8; }
 
         @media (max-width: 768px) {
-            #app-container { 
-                flex-direction: column; 
-                height: 100vh;
-                height: 100dvh;
-            }
-            #sidebar { 
-                width: 100%; 
-                max-height: 35vh; 
-                overflow-y: auto; 
-                border-bottom: 2px solid #1e1f22; 
-                padding: 12px;
-            }
-            #main-chat { 
-                flex-grow: 1; 
-                height: 65vh; 
-            }
-            #input-area { 
-                padding: 10px; 
-                gap: 5px; 
-            }
-            #message-input { 
-                font-size: 16px;
-            }
-            .action-btn { 
-                padding: 8px 10px; 
-                font-size: 0.9em; 
-            }
-            #send-btn { 
-                padding: 8px 14px; 
-            }
-            .picker-popup { 
-                right: 10px; 
-                left: 10px; 
-                width: auto !important; 
-            }
+            #app-container { flex-direction: column; height: 100vh; height: 100dvh; }
+            #sidebar { width: 100%; max-height: 35vh; overflow-y: auto; border-bottom: 2px solid #1e1f22; padding: 12px; }
+            #main-chat { flex-grow: 1; height: 65vh; }
+            #input-area { padding: 10px; gap: 5px; }
+            #message-input { font-size: 16px; }
+            .action-btn { padding: 8px 10px; font-size: 0.9em; }
+            #send-btn { padding: 8px 14px; }
+            .picker-popup { right: 10px; left: 10px; width: auto !important; }
         }
     </style>
 </head>
@@ -116,6 +91,10 @@
             <h2>HyperChat</h2>
             <input type="email" id="email" class="auth-input" placeholder="Email">
             <input type="password" id="password" class="auth-input" placeholder="Password">
+            
+            <!-- FORGOT PASSWORD LINK -->
+            <a href="#" id="forgot-password-link">Forgot Password?</a>
+            
             <button id="email-login-btn" class="auth-btn">Log In / Sign Up</button>
             <p>or</p>
             <button id="google-login-btn" class="auth-btn google-btn">Sign in with Google</button>
@@ -189,13 +168,10 @@
             
             <div id="input-area">
                 <input type="text" id="message-input" placeholder="Send a message..." disabled>
-                
                 <button id="emoji-btn" class="action-btn" title="Add Emoji">😀</button>
                 <button id="gif-btn" class="action-btn" title="Send GIF">GIF</button>
-                
                 <input type="file" id="file-input" style="display: none;">
                 <button id="file-btn" class="action-btn" title="Upload File or Image">📎</button>
-
                 <button id="send-btn" disabled>Send</button>
             </div>
         </div>

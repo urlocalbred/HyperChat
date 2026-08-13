@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
 // ==========================================
@@ -49,14 +49,12 @@ function triggerNotification(sender, text, chatTitle) {
     }
 }
 
-// Escapes raw HTML so users can't inject scripts
 function escapeHTML(str) {
     return str.replace(/[&<>'"]/g, 
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
     );
 }
 
-// Converts raw links (http/https) to clickable HTML links
 function linkify(text) {
     const safeText = escapeHTML(text);
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -79,7 +77,6 @@ function initVoiceChat() {
     peer = new Peer(currentUser.uid); 
     peer.on('open', (id) => { document.getElementById('my-peer-id').innerText = id; });
 
-    // Handle INCOMING Call
     peer.on('call', (call) => {
         incomingCall = call;
         document.getElementById('call-status-text').innerHTML = `<span style="color: #f1c40f; font-weight: bold;">📞 Incoming Call...</span>`;
@@ -89,7 +86,6 @@ function initVoiceChat() {
     });
 }
 
-// User presses ACCEPT
 acceptBtn.addEventListener('click', () => {
     if (!incomingCall) return;
     
@@ -106,7 +102,6 @@ acceptBtn.addEventListener('click', () => {
         });
 });
 
-// User presses DECLINE
 declineBtn.addEventListener('click', () => {
     if (incomingCall) {
         incomingCall.close();
@@ -141,8 +136,7 @@ function resetCallUI() {
 
 hangupBtn.addEventListener('click', resetCallUI);
 
-
-// --- MEDIA PICKERS (Emoji, GIF, File) ---
+// --- MEDIA PICKERS ---
 const emojiBtn = document.getElementById('emoji-btn');
 const emojiPopup = document.getElementById('emoji-picker-popup');
 const gifBtn = document.getElementById('gif-btn');
@@ -211,8 +205,7 @@ fileInput.addEventListener('change', (e) => {
     fileInput.value = ''; 
 });
 
-
-// --- CHAT RENDERING LOGIC ---
+// --- CHAT RENDERING ---
 function switchChat(chatPath, chatTitle) {
     document.getElementById('chat-header').innerText = chatTitle;
     document.getElementById('messages').innerHTML = '';
@@ -267,7 +260,7 @@ function switchChat(chatPath, chatTitle) {
             contentCol.appendChild(fileLink);
         } else {
             const textSpan = document.createElement('span');
-            textSpan.innerHTML = linkify(data.text); // Render URLs as clickable links safely
+            textSpan.innerHTML = linkify(data.text);
             contentCol.appendChild(textSpan);
         }
 
@@ -286,8 +279,7 @@ function switchChat(chatPath, chatTitle) {
 
 document.getElementById('general-channel-btn').addEventListener('click', () => switchChat('channels/general', '# general'));
 
-
-// --- AUTH & PROFILE SETTINGS LOGIC ---
+// --- AUTH & PROFILE LOGIC ---
 const authScreen = document.getElementById('auth-screen');
 const appContainer = document.getElementById('app-container');
 const messageInput = document.getElementById('message-input');
@@ -313,7 +305,6 @@ onAuthStateChanged(auth, (user) => {
         if(!peer) initVoiceChat(); 
         switchChat('channels/general', '# general');
         
-        // Render Friends List
         document.getElementById('friends-list').innerHTML = '';
         const myFriendsRef = ref(db, 'users/' + user.uid + '/friends');
         
@@ -348,7 +339,6 @@ onAuthStateChanged(auth, (user) => {
             callFriendBtn.className = 'friend-call-btn';
             callFriendBtn.innerText = '📞';
             
-            // Initiate OUTGOING call directly on click
             callFriendBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 navigator.mediaDevices.getUserMedia({ video: false, audio: true })
@@ -382,7 +372,6 @@ document.getElementById('add-friend-btn').addEventListener('click', () => {
     }
 });
 
-// Update Username
 document.getElementById('save-username-btn').addEventListener('click', () => {
     const newName = document.getElementById('username-input').value.trim();
     if (newName && currentUser) {
@@ -393,7 +382,6 @@ document.getElementById('save-username-btn').addEventListener('click', () => {
     }
 });
 
-// Update PFP Avatar
 document.getElementById('save-avatar-btn').addEventListener('click', () => {
     const newPic = document.getElementById('avatar-input').value.trim();
     if (newPic && currentUser) {
@@ -404,27 +392,48 @@ document.getElementById('save-avatar-btn').addEventListener('click', () => {
     }
 });
 
-document.getElementById('google-login-btn').addEventListener('click', () => {
-    requestNotificationPermission();
-    signInWithPopup(auth, new GoogleAuthProvider()).catch(err => alert(err.message));
+// PASSWORD RESET LOGIC
+document.getElementById('forgot-password-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    if (!email) {
+        return alert("Please enter your email address into the Email box first, then click 'Forgot Password?'.");
+    }
+    sendPasswordResetEmail(auth, email)
+        .then(() => alert("Password reset email sent! Check your inbox."))
+        .catch(err => alert("Error: " + err.message));
 });
 
+// GOOGLE LOGIN (With extra debug info if it fails)
+document.getElementById('google-login-btn').addEventListener('click', () => {
+    requestNotificationPermission();
+    signInWithPopup(auth, new GoogleAuthProvider())
+        .catch(err => alert("Google Sign-In Error: " + err.message + "\n\nDid you enable Google Auth in Firebase and whitelist your GitHub domain?"));
+});
+
+// EMAIL LOGIN & ACCOUNT CREATION CONFIRMATION
 document.getElementById('email-login-btn').addEventListener('click', () => {
     requestNotificationPermission();
-    const email = document.getElementById('email').value;
+    const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
+    
+    if (!email || !password) return alert("Please enter both email and password.");
+
     signInWithEmailAndPassword(auth, email, password)
         .catch((err) => {
             if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                createUserWithEmailAndPassword(auth, email, password).catch(e => alert(e.message));
-            } else alert(err.message);
+                createUserWithEmailAndPassword(auth, email, password)
+                    .then(() => {
+                        alert("Account successfully created! Welcome to HyperChat!");
+                    })
+                    .catch(e => alert(e.message));
+            } else alert("Login Error: " + err.message);
         });
 });
 
 document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
-
-// --- MESSAGE SENDING LOGIC ---
+// --- MESSAGE SENDING ---
 function sendMediaMessage(content, type, fileName = '') {
     if (currentUser && currentChatRef) {
         const displayName = currentUser.displayName || currentUser.email.split('@')[0];
