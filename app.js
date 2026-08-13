@@ -32,6 +32,15 @@ let currentChatRef = null;
 let currentChatUnsubscribe = null;
 let chatJoinTime = Date.now();
 
+// Replace this with your exact Firebase UID (found in Firebase Auth console)
+const ADMIN_UIDS = [
+    "NzV63xNtRUZEFvQSNHSbrrxMSrm2"
+];
+
+function isAdminUser(uid) {
+    return uid && ADMIN_UIDS.includes(uid);
+}
+
 // --- HELPERS ---
 function formatTime(timestamp) {
     if (!timestamp) return '';
@@ -251,6 +260,41 @@ function switchChat(chatPath, chatTitle) {
         const timeSpan = document.createElement('span');
         timeSpan.className = 'message-time';
         timeSpan.innerText = formatTime(data.timestamp);
+
+        // Inside switchChat, where msgDiv header is built:
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'message-header';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'sender-name';
+        nameSpan.innerText = data.name;
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'message-time';
+        timeSpan.innerText = formatTime(data.timestamp);
+
+        headerDiv.appendChild(nameSpan);
+        headerDiv.appendChild(timeSpan);
+
+        // If logged in as Admin, add a Delete button to this message
+        if (currentUser && isAdminUser(currentUser.uid)) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-msg-btn';
+            deleteBtn.innerText = '✖ Delete';
+            deleteBtn.title = 'Delete message (Admin)';
+            deleteBtn.addEventListener('click', () => {
+                if (confirm("Delete this message?")) {
+                    const msgRef = ref(db, `${chatPath}/${snapshot.key}`);
+                    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ remove }) => {
+                        remove(msgRef);
+                        msgDiv.remove();
+                    });
+                }
+            });
+            headerDiv.appendChild(deleteBtn);
+        }
+
+        msgDiv.appendChild(headerDiv);
         
         headerDiv.appendChild(nameSpan);
         headerDiv.appendChild(timeSpan);
@@ -300,6 +344,14 @@ function updateSidebarProfile() {
     const dName = currentUser.displayName || currentUser.email.split('@')[0];
     document.getElementById('current-username').innerText = dName;
     document.getElementById('my-avatar').src = getAvatarUrl(currentUser.photoURL, dName);
+}
+
+// Toggle Admin Panel UI based on UID
+const adminPanel = document.getElementById('admin-panel');
+if (isAdminUser(user.uid)) {
+    adminPanel.style.display = 'block';
+} else {
+    adminPanel.style.display = 'none';
 }
 
 onAuthStateChanged(auth, (user) => {
@@ -500,6 +552,37 @@ function sendMessage() {
         gifPopup.style.display = 'none';
     }
 }
+
+// --- ADMIN ACTIONS ---
+document.getElementById('clear-channel-btn').addEventListener('click', () => {
+    if (!currentUser || !isAdminUser(currentUser.uid)) return;
+    
+    if (confirm("Are you sure you want to delete ALL messages in this channel?")) {
+        import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set }) => {
+            set(ref(db, 'channels/general'), null)
+                .then(() => {
+                    document.getElementById('messages').innerHTML = '';
+                    alert("Channel cleared successfully.");
+                })
+                .catch(err => alert("Error clearing chat: " + err.message));
+        });
+    }
+});
+
+document.getElementById('system-announcement-btn').addEventListener('click', () => {
+    if (!currentUser || !isAdminUser(currentUser.uid)) return;
+    
+    const announcement = prompt("Enter system announcement message:");
+    if (announcement && currentChatRef) {
+        push(currentChatRef, {
+            name: "📣 SYSTEM ANNOUNCEMENT",
+            photoURL: "https://cdn-icons-png.flaticon.com/512/1032/1032062.png",
+            text: `**${announcement}**`,
+            type: 'text',
+            timestamp: Date.now()
+        });
+    }
+});
 
 sendBtn.addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
