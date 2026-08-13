@@ -1,9 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
 // ==========================================
-// PASTE YOUR FIREBASE CONFIG HERE
+// FIREBASE CONFIG
 const firebaseConfig = {
     apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
     authDomain: "hyperchat-c8eaa.firebaseapp.com",
@@ -291,6 +291,11 @@ function updateSidebarProfile() {
     document.getElementById('my-avatar').src = getAvatarUrl(currentUser.photoURL, dName);
 }
 
+// CHECK REDIRECT RESULT
+getRedirectResult(auth).catch((err) => {
+    alert("Google Sign-In Error: " + err.message);
+});
+
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
@@ -400,15 +405,15 @@ document.getElementById('forgot-password-link').addEventListener('click', (e) =>
         return alert("Please enter your email address into the Email box first, then click 'Forgot Password?'.");
     }
     sendPasswordResetEmail(auth, email)
-        .then(() => alert("Password reset email sent! Check your inbox."))
+        .then(() => alert("Password reset email sent! Check your inbox (and spam folder)."))
         .catch(err => alert("Error: " + err.message));
 });
 
-// GOOGLE LOGIN (With extra debug info if it fails)
+// GOOGLE LOGIN (REDIRECT)
 document.getElementById('google-login-btn').addEventListener('click', () => {
     requestNotificationPermission();
-    signInWithPopup(auth, new GoogleAuthProvider())
-        .catch(err => alert("Google Sign-In Error: " + err.message + "\n\nDid you enable Google Auth in Firebase and whitelist your GitHub domain?"));
+    const provider = new GoogleAuthProvider();
+    signInWithRedirect(auth, provider);
 });
 
 // EMAIL LOGIN & ACCOUNT CREATION CONFIRMATION
