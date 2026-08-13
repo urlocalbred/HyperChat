@@ -1,26 +1,18 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getDatabase, ref, push, onChildAdded, remove, set } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
 // ==========================================
+// 1. PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-
-  apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
-
-  authDomain: "hyperchat-c8eaa.firebaseapp.com",
-
-  databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
-
-  projectId: "hyperchat-c8eaa",
-
-  storageBucket: "hyperchat-c8eaa.firebasestorage.app",
-
-  messagingSenderId: "379852906414",
-
-  appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
-
+    apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
+    authDomain: "hyperchat-c8eaa.firebaseapp.com",
+    databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
+    projectId: "hyperchat-c8eaa",
+    storageBucket: "hyperchat-c8eaa.firebasestorage.app",
+    messagingSenderId: "379852906414",
+    appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
 };
-
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
@@ -29,13 +21,16 @@ const db = getDatabase(app);
 let currentUser = null;
 
 let currentChatRef = null;
+let currentChatPath = null;
 let currentChatUnsubscribe = null;
 let chatJoinTime = Date.now();
 
-// Replace this with your exact Firebase UID (found in Firebase Auth console)
+// ==========================================
+// 2. PASTE YOUR FIREBASE UID HERE
 const ADMIN_UIDS = [
     "NzV63xNtRUZEFvQSNHSbrrxMSrm2"
 ];
+// ==========================================
 
 function isAdminUser(uid) {
     return uid && ADMIN_UIDS.includes(uid);
@@ -80,7 +75,7 @@ function linkify(text) {
     });
 }
 
-// --- VOICE CALLING LOGIC (PeerJS with Accept/Decline) ---
+// --- VOICE CALLING LOGIC (PeerJS) ---
 let peer = null;
 let currentCall = null;
 let incomingCall = null;
@@ -153,7 +148,6 @@ function resetCallUI() {
 
 hangupBtn.addEventListener('click', resetCallUI);
 
-
 // --- MEDIA PICKERS ---
 const emojiBtn = document.getElementById('emoji-btn');
 const emojiPopup = document.getElementById('emoji-picker-popup');
@@ -223,7 +217,6 @@ fileInput.addEventListener('change', (e) => {
     fileInput.value = ''; 
 });
 
-
 // --- CHAT RENDERING ---
 function switchChat(chatPath, chatTitle) {
     document.getElementById('chat-header').innerText = chatTitle;
@@ -232,6 +225,7 @@ function switchChat(chatPath, chatTitle) {
     emojiPopup.style.display = 'none';
     gifPopup.style.display = 'none';
     chatJoinTime = Date.now();
+    currentChatPath = chatPath; // Store for Admin panel deleting
     
     if (currentChatUnsubscribe) currentChatUnsubscribe(); 
     
@@ -260,23 +254,11 @@ function switchChat(chatPath, chatTitle) {
         const timeSpan = document.createElement('span');
         timeSpan.className = 'message-time';
         timeSpan.innerText = formatTime(data.timestamp);
-
-        // Inside switchChat, where msgDiv header is built:
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'message-header';
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'sender-name';
-        nameSpan.innerText = data.name;
-
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'message-time';
-        timeSpan.innerText = formatTime(data.timestamp);
-
+        
         headerDiv.appendChild(nameSpan);
         headerDiv.appendChild(timeSpan);
 
-        // If logged in as Admin, add a Delete button to this message
+        // ADMIN FEATURE: Delete Button on Messages
         if (currentUser && isAdminUser(currentUser.uid)) {
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-msg-btn';
@@ -285,19 +267,14 @@ function switchChat(chatPath, chatTitle) {
             deleteBtn.addEventListener('click', () => {
                 if (confirm("Delete this message?")) {
                     const msgRef = ref(db, `${chatPath}/${snapshot.key}`);
-                    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ remove }) => {
-                        remove(msgRef);
-                        msgDiv.remove();
-                    });
+                    remove(msgRef).then(() => {
+                        msgDiv.style.display = 'none'; // Instantly hide the message locally
+                    }).catch(err => alert("Failed to delete: " + err.message));
                 }
             });
             headerDiv.appendChild(deleteBtn);
         }
 
-        msgDiv.appendChild(headerDiv);
-        
-        headerDiv.appendChild(nameSpan);
-        headerDiv.appendChild(timeSpan);
         contentCol.appendChild(headerDiv);
 
         if (data.type === 'image') {
@@ -333,12 +310,12 @@ function switchChat(chatPath, chatTitle) {
 
 document.getElementById('general-channel-btn').addEventListener('click', () => switchChat('channels/general', '# general'));
 
-
 // --- AUTH & PROFILE LOGIC ---
 const authScreen = document.getElementById('auth-screen');
 const appContainer = document.getElementById('app-container');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
+const adminPanel = document.getElementById('admin-panel');
 
 function updateSidebarProfile() {
     const dName = currentUser.displayName || currentUser.email.split('@')[0];
@@ -346,13 +323,9 @@ function updateSidebarProfile() {
     document.getElementById('my-avatar').src = getAvatarUrl(currentUser.photoURL, dName);
 }
 
-// Toggle Admin Panel UI based on UID
-const adminPanel = document.getElementById('admin-panel');
-if (isAdminUser(user.uid)) {
-    adminPanel.style.display = 'block';
-} else {
-    adminPanel.style.display = 'none';
-}
+getRedirectResult(auth).catch((err) => {
+    alert("Google Sign-In Error: " + err.message);
+});
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -364,6 +337,15 @@ onAuthStateChanged(auth, (user) => {
         sendBtn.disabled = false;
         
         updateSidebarProfile();
+
+        // Show/Hide Admin Panel UI
+        if (adminPanel) {
+            if (isAdminUser(user.uid)) {
+                adminPanel.style.display = 'block';
+            } else {
+                adminPanel.style.display = 'none';
+            }
+        }
 
         if(!peer) initVoiceChat(); 
         switchChat('channels/general', '# general');
@@ -437,32 +419,11 @@ document.getElementById('forgot-password-link').addEventListener('click', (e) =>
         .catch(err => alert("Error: " + err.message));
 });
 
-// --- GOOGLE LOGIN (WITH SUPER ERROR CATCHER) ---
+// GOOGLE LOGIN (REDIRECT)
 document.getElementById('google-login-btn').addEventListener('click', () => {
     requestNotificationPermission();
     const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' }); // Forces Google to show the account picker
-
-    signInWithPopup(auth, provider)
-        .catch((err) => {
-            console.error("Full Google Auth Error:", err);
-            
-            if (err.code === 'auth/unauthorized-domain') {
-                alert("🚨 FIREBASE ERROR: Your GitHub domain is not authorized.\n\nGo to Firebase Console -> Authentication -> Settings -> Authorized Domains and ensure it is spelled exactly right.");
-            } 
-            else if (err.code === 'auth/operation-not-supported-in-this-environment') {
-                alert("🚨 LOCALHOST ERROR: Google Sign-In does not work if you double-click the HTML file on your computer. You must test it on your live GitHub Pages link!");
-            }
-            else if (err.message.includes('cookie') || err.code === 'auth/web-storage-unsupported') {
-                alert("🚨 BROWSER ERROR: Your browser is blocking third-party cookies.\n\nIf you are using Brave, turn off Shields. If you are using Safari or Chrome Incognito, you must allow cross-site tracking. Firebase needs this to log you in!");
-            } 
-            else if (err.code === 'auth/popup-closed-by-user') {
-                // Do nothing, they just clicked the X on the popup
-            }
-            else {
-                alert("🚨 UNKNOWN ERROR: " + err.message + "\n\n(Check F12 Developer Console for details)");
-            }
-        });
+    signInWithRedirect(auth, provider);
 });
 
 // EMAIL LOGIN
@@ -477,9 +438,7 @@ document.getElementById('email-login-btn').addEventListener('click', () => {
         .catch((err) => {
             if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
                 createUserWithEmailAndPassword(auth, email, password)
-                    .then(() => {
-                        alert("Account successfully created! Welcome to HyperChat!");
-                    })
+                    .then(() => alert("Account successfully created! Welcome to HyperChat!"))
                     .catch(e => alert(e.message));
             } else alert("Login Error: " + err.message);
         });
@@ -487,7 +446,7 @@ document.getElementById('email-login-btn').addEventListener('click', () => {
 
 document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
-// Profile updates
+// PROFILE LOGIC
 document.getElementById('save-username-btn').addEventListener('click', () => {
     const newName = document.getElementById('username-input').value.trim();
     if (newName && currentUser) {
@@ -553,36 +512,36 @@ function sendMessage() {
     }
 }
 
-// --- ADMIN ACTIONS ---
-document.getElementById('clear-channel-btn').addEventListener('click', () => {
+sendBtn.addEventListener('click', sendMessage);
+messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+
+// --- ADMIN ACTIONS LOGIC ---
+// (We use ?. optional chaining here so it doesn't crash if index.html hasn't been updated yet)
+document.getElementById('clear-channel-btn')?.addEventListener('click', () => {
     if (!currentUser || !isAdminUser(currentUser.uid)) return;
     
     if (confirm("Are you sure you want to delete ALL messages in this channel?")) {
-        import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set }) => {
-            set(ref(db, 'channels/general'), null)
-                .then(() => {
-                    document.getElementById('messages').innerHTML = '';
-                    alert("Channel cleared successfully.");
-                })
-                .catch(err => alert("Error clearing chat: " + err.message));
-        });
+        set(ref(db, currentChatPath || 'channels/general'), null)
+            .then(() => {
+                document.getElementById('messages').innerHTML = '';
+                alert("Channel cleared successfully.");
+            })
+            .catch(err => alert("Error clearing chat: " + err.message));
     }
 });
 
-document.getElementById('system-announcement-btn').addEventListener('click', () => {
+document.getElementById('system-announcement-btn')?.addEventListener('click', () => {
     if (!currentUser || !isAdminUser(currentUser.uid)) return;
     
     const announcement = prompt("Enter system announcement message:");
     if (announcement && currentChatRef) {
         push(currentChatRef, {
             name: "📣 SYSTEM ANNOUNCEMENT",
-            photoURL: "https://cdn-icons-png.flaticon.com/512/1032/1032062.png",
-            text: `**${announcement}**`,
+            photoURL: "https://api.dicebear.com/9.x/initials/svg?seed=SYS&backgroundColor=da373c",
+            text: announcement,
             type: 'text',
             timestamp: Date.now()
         });
     }
 });
-
-sendBtn.addEventListener('click', sendMessage);
-messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
