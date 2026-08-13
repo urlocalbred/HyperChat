@@ -1,18 +1,26 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
 // ==========================================
-// FIREBASE CONFIG
 const firebaseConfig = {
-    apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
-    authDomain: "hyperchat-c8eaa.firebaseapp.com",
-    databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
-    projectId: "hyperchat-c8eaa",
-    storageBucket: "hyperchat-c8eaa.firebasestorage.app",
-    messagingSenderId: "379852906414",
-    appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
+
+  apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
+
+  authDomain: "hyperchat-c8eaa.firebaseapp.com",
+
+  databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
+
+  projectId: "hyperchat-c8eaa",
+
+  storageBucket: "hyperchat-c8eaa.firebasestorage.app",
+
+  messagingSenderId: "379852906414",
+
+  appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
+
 };
+
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
@@ -136,6 +144,7 @@ function resetCallUI() {
 
 hangupBtn.addEventListener('click', resetCallUI);
 
+
 // --- MEDIA PICKERS ---
 const emojiBtn = document.getElementById('emoji-btn');
 const emojiPopup = document.getElementById('emoji-picker-popup');
@@ -204,6 +213,7 @@ fileInput.addEventListener('change', (e) => {
     reader.readAsDataURL(file);
     fileInput.value = ''; 
 });
+
 
 // --- CHAT RENDERING ---
 function switchChat(chatPath, chatTitle) {
@@ -279,6 +289,7 @@ function switchChat(chatPath, chatTitle) {
 
 document.getElementById('general-channel-btn').addEventListener('click', () => switchChat('channels/general', '# general'));
 
+
 // --- AUTH & PROFILE LOGIC ---
 const authScreen = document.getElementById('auth-screen');
 const appContainer = document.getElementById('app-container');
@@ -290,11 +301,6 @@ function updateSidebarProfile() {
     document.getElementById('current-username').innerText = dName;
     document.getElementById('my-avatar').src = getAvatarUrl(currentUser.photoURL, dName);
 }
-
-// CHECK REDIRECT RESULT
-getRedirectResult(auth).catch((err) => {
-    alert("Google Sign-In Error: " + err.message);
-});
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -367,37 +373,7 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-document.getElementById('add-friend-btn').addEventListener('click', () => {
-    const fName = document.getElementById('friend-name-input').value.trim();
-    const fId = document.getElementById('friend-id-input').value.trim();
-    if (fName && fId && currentUser) {
-        push(ref(db, 'users/' + currentUser.uid + '/friends'), { name: fName, voiceId: fId });
-        document.getElementById('friend-name-input').value = '';
-        document.getElementById('friend-id-input').value = '';
-    }
-});
-
-document.getElementById('save-username-btn').addEventListener('click', () => {
-    const newName = document.getElementById('username-input').value.trim();
-    if (newName && currentUser) {
-        updateProfile(currentUser, { displayName: newName }).then(() => {
-            updateSidebarProfile();
-            document.getElementById('username-input').value = '';
-        }).catch(err => alert("Error updating name: " + err.message));
-    }
-});
-
-document.getElementById('save-avatar-btn').addEventListener('click', () => {
-    const newPic = document.getElementById('avatar-input').value.trim();
-    if (newPic && currentUser) {
-        updateProfile(currentUser, { photoURL: newPic }).then(() => {
-            updateSidebarProfile();
-            document.getElementById('avatar-input').value = '';
-        }).catch(err => alert("Error updating Avatar: " + err.message));
-    }
-});
-
-// PASSWORD RESET LOGIC
+// PASSWORD RESET
 document.getElementById('forgot-password-link').addEventListener('click', (e) => {
     e.preventDefault();
     const email = document.getElementById('email').value.trim();
@@ -409,14 +385,35 @@ document.getElementById('forgot-password-link').addEventListener('click', (e) =>
         .catch(err => alert("Error: " + err.message));
 });
 
-// GOOGLE LOGIN (REDIRECT)
+// --- GOOGLE LOGIN (WITH SUPER ERROR CATCHER) ---
 document.getElementById('google-login-btn').addEventListener('click', () => {
     requestNotificationPermission();
     const provider = new GoogleAuthProvider();
-    signInWithRedirect(auth, provider);
+    provider.setCustomParameters({ prompt: 'select_account' }); // Forces Google to show the account picker
+
+    signInWithPopup(auth, provider)
+        .catch((err) => {
+            console.error("Full Google Auth Error:", err);
+            
+            if (err.code === 'auth/unauthorized-domain') {
+                alert("🚨 FIREBASE ERROR: Your GitHub domain is not authorized.\n\nGo to Firebase Console -> Authentication -> Settings -> Authorized Domains and ensure it is spelled exactly right.");
+            } 
+            else if (err.code === 'auth/operation-not-supported-in-this-environment') {
+                alert("🚨 LOCALHOST ERROR: Google Sign-In does not work if you double-click the HTML file on your computer. You must test it on your live GitHub Pages link!");
+            }
+            else if (err.message.includes('cookie') || err.code === 'auth/web-storage-unsupported') {
+                alert("🚨 BROWSER ERROR: Your browser is blocking third-party cookies.\n\nIf you are using Brave, turn off Shields. If you are using Safari or Chrome Incognito, you must allow cross-site tracking. Firebase needs this to log you in!");
+            } 
+            else if (err.code === 'auth/popup-closed-by-user') {
+                // Do nothing, they just clicked the X on the popup
+            }
+            else {
+                alert("🚨 UNKNOWN ERROR: " + err.message + "\n\n(Check F12 Developer Console for details)");
+            }
+        });
 });
 
-// EMAIL LOGIN & ACCOUNT CREATION CONFIRMATION
+// EMAIL LOGIN
 document.getElementById('email-login-btn').addEventListener('click', () => {
     requestNotificationPermission();
     const email = document.getElementById('email').value.trim();
@@ -437,6 +434,37 @@ document.getElementById('email-login-btn').addEventListener('click', () => {
 });
 
 document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+// Profile updates
+document.getElementById('save-username-btn').addEventListener('click', () => {
+    const newName = document.getElementById('username-input').value.trim();
+    if (newName && currentUser) {
+        updateProfile(currentUser, { displayName: newName }).then(() => {
+            updateSidebarProfile();
+            document.getElementById('username-input').value = '';
+        }).catch(err => alert("Error updating name: " + err.message));
+    }
+});
+
+document.getElementById('save-avatar-btn').addEventListener('click', () => {
+    const newPic = document.getElementById('avatar-input').value.trim();
+    if (newPic && currentUser) {
+        updateProfile(currentUser, { photoURL: newPic }).then(() => {
+            updateSidebarProfile();
+            document.getElementById('avatar-input').value = '';
+        }).catch(err => alert("Error updating Avatar: " + err.message));
+    }
+});
+
+document.getElementById('add-friend-btn').addEventListener('click', () => {
+    const fName = document.getElementById('friend-name-input').value.trim();
+    const fId = document.getElementById('friend-id-input').value.trim();
+    if (fName && fId && currentUser) {
+        push(ref(db, 'users/' + currentUser.uid + '/friends'), { name: fName, voiceId: fId });
+        document.getElementById('friend-name-input').value = '';
+        document.getElementById('friend-id-input').value = '';
+    }
+});
 
 // --- MESSAGE SENDING ---
 function sendMediaMessage(content, type, fileName = '') {
