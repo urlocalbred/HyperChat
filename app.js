@@ -22,7 +22,6 @@ const firebaseConfig = {
 
 };
 
-
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
@@ -368,6 +367,9 @@ function switchChat(chatPath, chatTitle, btnElement) {
         const nameSpan = document.createElement('span');
         nameSpan.className = 'sender-name';
         nameSpan.innerText = data.name;
+        
+        // ADD NAME TO HEADER (This is the line I missed last time!)
+        headerDiv.appendChild(nameSpan);
 
         // Fetch User Role dynamically and create Badge
         const userRole = data.uid ? userRoles[data.uid] : null;
