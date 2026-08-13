@@ -5,14 +5,23 @@ import { getDatabase, ref, push, onChildAdded, remove, set } from "https://www.g
 // ==========================================
 // 1. PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-    apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
-    authDomain: "hyperchat-c8eaa.firebaseapp.com",
-    databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
-    projectId: "hyperchat-c8eaa",
-    storageBucket: "hyperchat-c8eaa.firebasestorage.app",
-    messagingSenderId: "379852906414",
-    appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
+
+  apiKey: "AIzaSyAPAEbgizA_47jWEQBx6d4720PLzuvOPbk",
+
+  authDomain: "hyperchat-c8eaa.firebaseapp.com",
+
+  databaseURL: "https://hyperchat-c8eaa-default-rtdb.firebaseio.com",
+
+  projectId: "hyperchat-c8eaa",
+
+  storageBucket: "hyperchat-c8eaa.firebasestorage.app",
+
+  messagingSenderId: "379852906414",
+
+  appId: "1:379852906414:web:d96f83e19d2d7ee304f23f"
+
 };
+
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
@@ -157,6 +166,7 @@ const fileBtn = document.getElementById('file-btn');
 const fileInput = document.getElementById('file-input');
 
 emojiBtn.addEventListener('click', () => {
+    if(emojiBtn.disabled) return;
     gifPopup.style.display = 'none';
     emojiPopup.style.display = emojiPopup.style.display === 'block' ? 'none' : 'block';
 });
@@ -166,6 +176,7 @@ document.querySelector('emoji-picker').addEventListener('emoji-click', (e) => {
 });
 
 gifBtn.addEventListener('click', () => {
+    if(gifBtn.disabled) return;
     emojiPopup.style.display = 'none';
     const isVisible = gifPopup.style.display === 'block';
     gifPopup.style.display = isVisible ? 'none' : 'block';
@@ -201,7 +212,10 @@ function fetchGIFs(query) {
     });
 }
 
-fileBtn.addEventListener('click', () => fileInput.click());
+fileBtn.addEventListener('click', () => {
+    if(fileBtn.disabled) return;
+    fileInput.click();
+});
 
 fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -217,16 +231,41 @@ fileInput.addEventListener('change', (e) => {
     fileInput.value = ''; 
 });
 
-// --- CHAT RENDERING ---
-function switchChat(chatPath, chatTitle) {
+// --- CHAT RENDERING & RESTRICTIONS ---
+function switchChat(chatPath, chatTitle, btnElement) {
+    // Visually update the active channel in the sidebar
+    document.querySelectorAll('.channel-link').forEach(el => el.classList.remove('active-chat-link'));
+    if (btnElement) btnElement.classList.add('active-chat-link');
+
     document.getElementById('chat-header').innerText = chatTitle;
     document.getElementById('messages').innerHTML = '';
     
     emojiPopup.style.display = 'none';
     gifPopup.style.display = 'none';
     chatJoinTime = Date.now();
-    currentChatPath = chatPath; // Store for Admin panel deleting
+    currentChatPath = chatPath; 
     
+    // Check if it is the Announcements channel and if they are an admin
+    const isAnnouncement = chatPath === 'channels/announcements';
+    const isUserAdmin = currentUser && isAdminUser(currentUser.uid);
+
+    // Disable inputs for regular users in #announcements
+    if (isAnnouncement && !isUserAdmin) {
+        document.getElementById('message-input').disabled = true;
+        document.getElementById('message-input').placeholder = "Only admins can post in # announcements";
+        document.getElementById('send-btn').disabled = true;
+        document.getElementById('emoji-btn').disabled = true;
+        document.getElementById('gif-btn').disabled = true;
+        document.getElementById('file-btn').disabled = true;
+    } else {
+        document.getElementById('message-input').disabled = false;
+        document.getElementById('message-input').placeholder = "Send a message...";
+        document.getElementById('send-btn').disabled = false;
+        document.getElementById('emoji-btn').disabled = false;
+        document.getElementById('gif-btn').disabled = false;
+        document.getElementById('file-btn').disabled = false;
+    }
+
     if (currentChatUnsubscribe) currentChatUnsubscribe(); 
     
     currentChatRef = ref(db, chatPath);
@@ -268,7 +307,7 @@ function switchChat(chatPath, chatTitle) {
                 if (confirm("Delete this message?")) {
                     const msgRef = ref(db, `${chatPath}/${snapshot.key}`);
                     remove(msgRef).then(() => {
-                        msgDiv.style.display = 'none'; // Instantly hide the message locally
+                        msgDiv.style.display = 'none'; 
                     }).catch(err => alert("Failed to delete: " + err.message));
                 }
             });
@@ -308,7 +347,14 @@ function switchChat(chatPath, chatTitle) {
     });
 }
 
-document.getElementById('general-channel-btn').addEventListener('click', () => switchChat('channels/general', '# general'));
+// BIND CHANNEL BUTTONS
+document.getElementById('welcome-btn').addEventListener('click', (e) => switchChat('channels/welcome', '# welcome', e.target));
+document.getElementById('announcements-btn').addEventListener('click', (e) => switchChat('channels/announcements', '# announcements', e.target));
+document.getElementById('general-1-btn').addEventListener('click', (e) => switchChat('channels/general-1', '# general-1', e.target));
+document.getElementById('general-2-btn').addEventListener('click', (e) => switchChat('channels/general-2', '# general-2', e.target));
+document.getElementById('general-4-btn').addEventListener('click', (e) => switchChat('channels/general-4', '# general-4', e.target));
+document.getElementById('general-5-btn').addEventListener('click', (e) => switchChat('channels/general-5', '# general-5', e.target));
+
 
 // --- AUTH & PROFILE LOGIC ---
 const authScreen = document.getElementById('auth-screen');
@@ -333,12 +379,8 @@ onAuthStateChanged(auth, (user) => {
         authScreen.style.display = 'none';
         appContainer.style.display = window.innerWidth <= 768 ? 'flex' : 'flex';
         
-        messageInput.disabled = false;
-        sendBtn.disabled = false;
-        
         updateSidebarProfile();
 
-        // Show/Hide Admin Panel UI
         if (adminPanel) {
             if (isAdminUser(user.uid)) {
                 adminPanel.style.display = 'block';
@@ -348,7 +390,9 @@ onAuthStateChanged(auth, (user) => {
         }
 
         if(!peer) initVoiceChat(); 
-        switchChat('channels/general', '# general');
+        
+        // Default to welcome channel on login
+        switchChat('channels/welcome', '# welcome', document.getElementById('welcome-btn'));
         
         document.getElementById('friends-list').innerHTML = '';
         const myFriendsRef = ref(db, 'users/' + user.uid + '/friends');
@@ -377,7 +421,7 @@ onAuthStateChanged(auth, (user) => {
                 const uid1 = currentUser.uid;
                 const uid2 = friend.voiceId; 
                 const dmPath = uid1 < uid2 ? `dms/${uid1}_${uid2}` : `dms/${uid2}_${uid1}`;
-                switchChat(dmPath, '@ ' + friend.name);
+                switchChat(dmPath, '@ ' + friend.name, null);
             });
             
             const callFriendBtn = document.createElement('button');
@@ -517,12 +561,11 @@ messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMe
 
 
 // --- ADMIN ACTIONS LOGIC ---
-// (We use ?. optional chaining here so it doesn't crash if index.html hasn't been updated yet)
 document.getElementById('clear-channel-btn')?.addEventListener('click', () => {
     if (!currentUser || !isAdminUser(currentUser.uid)) return;
     
-    if (confirm("Are you sure you want to delete ALL messages in this channel?")) {
-        set(ref(db, currentChatPath || 'channels/general'), null)
+    if (confirm(`Are you sure you want to delete ALL messages in ${currentChatPath}?`)) {
+        set(ref(db, currentChatPath || 'channels/general-1'), null)
             .then(() => {
                 document.getElementById('messages').innerHTML = '';
                 alert("Channel cleared successfully.");

@@ -12,45 +12,6 @@
         * { box-sizing: border-box; }
         body { margin: 0; font-family: sans-serif; background: #313338; color: white; }
         
-        /* Admin Panel Styles */
-        #admin-panel {
-            display: none;
-            background: #1e1f22;
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 15px;
-            border: 1px solid #da373c;
-        }
-        #admin-panel h4 {
-            margin: 0 0 8px 0;
-            color: #da373c;
-            font-size: 0.85em;
-            text-transform: uppercase;
-        }
-        .admin-btn {
-            width: 100%;
-            padding: 6px;
-            margin-bottom: 5px;
-            background: #da373c;
-            border: none;
-            color: white;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 0.8em;
-            font-weight: bold;
-        }
-        .admin-btn:hover { background: #a1282b; }
-        .delete-msg-btn {
-            background: none;
-            border: none;
-            color: #da373c;
-            cursor: pointer;
-            font-size: 0.8em;
-            margin-left: 8px;
-            opacity: 0.6;
-        }
-        .delete-msg-btn:hover { opacity: 1; }
-
         #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
         .auth-box { background: #2b2d31; padding: 40px; border-radius: 8px; text-align: center; width: 90%; max-width: 350px; }
         .auth-input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #1e1f22; color: white; }
@@ -100,9 +61,12 @@
 
         #input-area { padding: 20px; background: #2b2d31; display: flex; gap: 10px; align-items: center; position: relative; }
         #message-input { flex-grow: 1; padding: 10px; border-radius: 5px; border: none; background: #383a40; color: white; }
+        #message-input:disabled { opacity: 0.5; cursor: not-allowed; }
         .action-btn { background: #383a40; border: none; color: white; border-radius: 5px; padding: 10px 12px; cursor: pointer; font-weight: bold; }
         .action-btn:hover { background: #4e5058; }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         #send-btn { padding: 10px 20px; border-radius: 5px; border: none; background: #5865F2; color: white; cursor: pointer; font-weight: bold; }
+        #send-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #383a40; }
 
         .picker-popup { display: none; position: absolute; bottom: 70px; right: 20px; background: #2b2d31; border: 1px solid #383a40; border-radius: 8px; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         #gif-picker-popup { width: 300px; padding: 10px; }
@@ -110,6 +74,14 @@
         #gif-results { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 250px; overflow-y: auto; }
         #gif-results img { width: 100%; height: 90px; object-fit: cover; border-radius: 4px; cursor: pointer; }
         #gif-results img:hover { opacity: 0.8; }
+
+        /* Admin Panel Styles */
+        #admin-panel { display: none; background: #1e1f22; padding: 10px; border-radius: 5px; margin-top: 15px; border: 1px solid #da373c; }
+        #admin-panel h4 { margin: 0 0 8px 0; color: #da373c; font-size: 0.85em; text-transform: uppercase; }
+        .admin-btn { width: 100%; padding: 6px; margin-bottom: 5px; background: #da373c; border: none; color: white; border-radius: 3px; cursor: pointer; font-size: 0.8em; font-weight: bold; }
+        .admin-btn:hover { background: #a1282b; }
+        .delete-msg-btn { background: none; border: none; color: #da373c; cursor: pointer; font-size: 0.8em; margin-left: 8px; opacity: 0.6; }
+        .delete-msg-btn:hover { opacity: 1; }
 
         @media (max-width: 768px) {
             #app-container { flex-direction: column; height: 100vh; height: 100dvh; }
@@ -144,7 +116,13 @@
             <div>
                 <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
                 <h3>Channels</h3>
-                <div id="general-channel-btn" class="channel-link active-chat-link"># general</div>
+                <!-- NEW CHANNEL LIST -->
+                <div id="welcome-btn" class="channel-link active-chat-link"># welcome</div>
+                <div id="announcements-btn" class="channel-link"># announcements</div>
+                <div id="general-1-btn" class="channel-link"># general-1</div>
+                <div id="general-2-btn" class="channel-link"># general-2</div>
+                <div id="general-4-btn" class="channel-link"># general-4</div>
+                <div id="general-5-btn" class="channel-link"># general-5</div>
             </div>
             
             <div style="margin-top: 15px; border-top: 1px solid #1e1f22; padding-top: 15px;">
@@ -161,7 +139,7 @@
             <!-- ADMIN PANEL SIDEBAR SECTION -->
             <div id="admin-panel">
                 <h4>⚙️ Admin Panel</h4>
-                <button id="clear-channel-btn" class="admin-btn">🗑️ Clear General Chat</button>
+                <button id="clear-channel-btn" class="admin-btn">🗑️ Clear Current Chat</button>
                 <button id="system-announcement-btn" class="admin-btn" style="background: #e67e22;">📢 Send Announcement</button>
             </div>
 
@@ -198,7 +176,7 @@
                 <audio id="remote-audio" autoplay></audio>
             </div>
 
-            <div id="chat-header"># general</div>
+            <div id="chat-header"># welcome</div>
 
             <div id="emoji-picker-popup" class="picker-popup">
                 <emoji-picker class="dark"></emoji-picker>
