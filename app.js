@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getDatabase, ref, push, onChildAdded, remove, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getDatabase, ref, push, onChildAdded, remove, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
 // ==========================================
 // 1. PASTE YOUR FIREBASE CONFIG HERE
@@ -22,6 +22,7 @@ const firebaseConfig = {
 
 };
 
+
 // ==========================================
 
 const app = initializeApp(firebaseConfig);
@@ -33,7 +34,7 @@ let currentChatRef = null;
 let currentChatPath = null;
 let currentChatUnsubscribe = null;
 let chatJoinTime = Date.now();
-let userRoles = {}; // Stores all user roles locally
+let userRoles = {}; 
 
 // ==========================================
 // 2. PASTE YOUR FIREBASE UID HERE
@@ -232,7 +233,87 @@ fileInput.addEventListener('change', (e) => {
     fileInput.value = ''; 
 });
 
-// --- CHAT RENDERING & RESTRICTIONS ---
+
+// --- DYNAMIC CHANNELS RENDERING ---
+onValue(ref(db, 'channel_list'), (snapshot) => {
+    const channelsContainer = document.getElementById('channels-container');
+    if (!channelsContainer) return;
+    
+    channelsContainer.innerHTML = '';
+    
+    // Auto-create default channels if none exist (Owner setup)
+    if (!snapshot.exists()) {
+        if (currentUser && currentUser.uid === OWNER_UID) {
+            set(ref(db, 'channel_list/welcome'), { name: 'welcome' });
+            set(ref(db, 'channel_list/announcements'), { name: 'announcements' });
+            set(ref(db, 'channel_list/general-1'), { name: 'general-1' });
+        }
+        return;
+    }
+
+    snapshot.forEach(child => {
+        const chId = child.key;
+        const chName = child.val().name;
+
+        const div = document.createElement('div');
+        div.className = 'channel-link';
+        // Keep active highlight if we are currently in this chat
+        if (currentChatPath === `channels/${chId}`) div.classList.add('active-chat-link');
+        
+        div.style.display = 'flex';
+        div.style.justifyContent = 'space-between';
+        div.style.alignItems = 'center';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.innerText = `# ${chName}`;
+        nameSpan.style.flexGrow = '1';
+        nameSpan.addEventListener('click', () => switchChat(`channels/${chId}`, `# ${chName}`, div));
+        
+        div.appendChild(nameSpan);
+
+        // Edit & Delete icons for Admins
+        if (currentUser && hasAdminPowers(currentUser.uid)) {
+            const controls = document.createElement('div');
+            
+            const editBtn = document.createElement('button');
+            editBtn.innerText = '✏️';
+            editBtn.style = 'background:none; border:none; cursor:pointer; font-size:0.8em; padding: 0 4px;';
+            editBtn.title = 'Rename Channel';
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                const newName = prompt(`Enter new name for #${chName}:`, chName);
+                if (newName && newName.trim() !== '') {
+                    update(ref(db, `channel_list/${chId}`), { name: newName.trim() });
+                }
+            };
+
+            const delBtn = document.createElement('button');
+            delBtn.innerText = '🗑️';
+            delBtn.style = 'background:none; border:none; cursor:pointer; font-size:0.8em; padding: 0 4px;';
+            delBtn.title = 'Delete Channel';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (chId === 'welcome' || chId === 'announcements') {
+                    return alert("System Error: You cannot delete core system channels.");
+                }
+                if (confirm(`Are you SURE you want to permanently delete #${chName} and all its messages?`)) {
+                    remove(ref(db, `channel_list/${chId}`));
+                    remove(ref(db, `channels/${chId}`)); 
+                    if (currentChatPath === `channels/${chId}`) switchChat('channels/welcome', '# welcome');
+                }
+            };
+            
+            controls.appendChild(editBtn);
+            controls.appendChild(delBtn);
+            div.appendChild(controls);
+        }
+
+        channelsContainer.appendChild(div);
+    });
+});
+
+
+// --- CHAT MESSAGES RENDERING & RESTRICTIONS ---
 function switchChat(chatPath, chatTitle, btnElement) {
     document.querySelectorAll('.channel-link').forEach(el => el.classList.remove('active-chat-link'));
     if (btnElement) btnElement.classList.add('active-chat-link');
@@ -292,7 +373,6 @@ function switchChat(chatPath, chatTitle, btnElement) {
         const userRole = data.uid ? userRoles[data.uid] : null;
         if (userRole) {
             const roleBadge = document.createElement('span');
-            // Using toLowerCase to match CSS classes (e.g., .role-admin, .role-owner)
             roleBadge.className = `role-badge role-${userRole.toLowerCase().replace(' ', '-')}`;
             roleBadge.innerText = userRole;
             headerDiv.appendChild(roleBadge);
@@ -303,7 +383,7 @@ function switchChat(chatPath, chatTitle, btnElement) {
         timeSpan.innerText = formatTime(data.timestamp);
         headerDiv.appendChild(timeSpan);
 
-        // ADMIN FEATURE: Delete Button
+        // Delete Button
         if (currentUser && hasAdminPowers(currentUser.uid)) {
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-msg-btn';
@@ -353,14 +433,6 @@ function switchChat(chatPath, chatTitle, btnElement) {
     });
 }
 
-// BIND CHANNEL BUTTONS
-document.getElementById('welcome-btn').addEventListener('click', (e) => switchChat('channels/welcome', '# welcome', e.target));
-document.getElementById('announcements-btn').addEventListener('click', (e) => switchChat('channels/announcements', '# announcements', e.target));
-document.getElementById('general-1-btn').addEventListener('click', (e) => switchChat('channels/general-1', '# general-1', e.target));
-document.getElementById('general-2-btn').addEventListener('click', (e) => switchChat('channels/general-2', '# general-2', e.target));
-document.getElementById('general-4-btn').addEventListener('click', (e) => switchChat('channels/general-4', '# general-4', e.target));
-document.getElementById('general-5-btn').addEventListener('click', (e) => switchChat('channels/general-5', '# general-5', e.target));
-
 
 // --- AUTH, ROLES & UI ---
 const authScreen = document.getElementById('auth-screen');
@@ -368,6 +440,7 @@ const appContainer = document.getElementById('app-container');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
 const adminPanel = document.getElementById('admin-panel');
+const channelManager = document.getElementById('channel-manager');
 const roleAssigner = document.getElementById('role-assigner');
 
 function updateSidebarProfile() {
@@ -379,15 +452,17 @@ function updateSidebarProfile() {
 function refreshAdminUI() {
     if (!currentUser) return;
     
-    // Check general admin powers (Delete msgs, clear chat, announcements)
+    // Check general admin powers
     if (adminPanel) {
         if (hasAdminPowers(currentUser.uid)) {
             adminPanel.style.display = 'block';
+            if (channelManager) channelManager.style.display = 'block';
         } else {
             adminPanel.style.display = 'none';
         }
     }
-    // Check specific OWNER powers (Assigning roles)
+    
+    // Check specific OWNER powers
     if (roleAssigner) {
         if (currentUser.uid === OWNER_UID) {
             roleAssigner.style.display = 'block';
@@ -409,12 +484,12 @@ onAuthStateChanged(auth, (user) => {
         
         updateSidebarProfile();
 
-        // Listen for Global Roles so we can assign badges instantly
+        // Listen for Global Roles
         onValue(ref(db, 'roles'), (snapshot) => {
             userRoles = snapshot.val() || {};
             refreshAdminUI();
             
-            // Re-render the chat window if we're in one, to update badges
+            // Re-render chat to update badges
             if (currentChatPath) {
                 const activeBtn = document.querySelector('.active-chat-link');
                 const title = document.getElementById('chat-header').innerText;
@@ -424,7 +499,7 @@ onAuthStateChanged(auth, (user) => {
 
         if(!peer) initVoiceChat(); 
         
-        switchChat('channels/welcome', '# welcome', document.getElementById('welcome-btn'));
+        switchChat('channels/welcome', '# welcome');
         
         document.getElementById('friends-list').innerHTML = '';
         const myFriendsRef = ref(db, 'users/' + user.uid + '/friends');
@@ -495,7 +570,7 @@ document.getElementById('forgot-password-link').addEventListener('click', (e) =>
         .catch(err => alert("Error: " + err.message));
 });
 
-// GOOGLE LOGIN (REDIRECT)
+// GOOGLE LOGIN 
 document.getElementById('google-login-btn').addEventListener('click', () => {
     requestNotificationPermission();
     const provider = new GoogleAuthProvider();
@@ -553,12 +628,12 @@ document.getElementById('add-friend-btn').addEventListener('click', () => {
     }
 });
 
-// --- MESSAGE SENDING (Includes UID for roles) ---
+// --- MESSAGE SENDING ---
 function sendMediaMessage(content, type, fileName = '') {
     if (currentUser && currentChatRef) {
         const displayName = currentUser.displayName || currentUser.email.split('@')[0];
         push(currentChatRef, {
-            uid: currentUser.uid, // Sent to identify role later
+            uid: currentUser.uid, 
             name: displayName,
             photoURL: currentUser.photoURL || '',
             text: content,
@@ -576,7 +651,7 @@ function sendMessage() {
         const isImageUrl = text.match(/^https?:\/\/.*?\.(gif|png|jpg|jpeg|webp)(\?.*)?$/i);
 
         push(currentChatRef, {
-            uid: currentUser.uid, // Sent to identify role later
+            uid: currentUser.uid, 
             name: displayName,
             photoURL: currentUser.photoURL || '',
             text: text,
@@ -595,6 +670,22 @@ messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMe
 
 
 // --- ADMIN ACTIONS LOGIC ---
+document.getElementById('create-channel-btn')?.addEventListener('click', () => {
+    if (!currentUser || !hasAdminPowers(currentUser.uid)) return;
+    
+    const nameInput = document.getElementById('new-channel-input').value.trim();
+    if (!nameInput) return alert("Please enter a channel name!");
+    
+    // Format ID safely (lowercase, spaces to dashes)
+    const channelId = nameInput.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    
+    set(ref(db, `channel_list/${channelId}`), { name: nameInput })
+        .then(() => {
+            document.getElementById('new-channel-input').value = '';
+        })
+        .catch(err => alert("Error creating channel: " + err.message));
+});
+
 document.getElementById('clear-channel-btn')?.addEventListener('click', () => {
     if (!currentUser || !hasAdminPowers(currentUser.uid)) return;
     
@@ -614,7 +705,7 @@ document.getElementById('system-announcement-btn')?.addEventListener('click', ()
     const announcement = prompt("Enter system announcement message:");
     if (announcement && currentChatRef) {
         push(currentChatRef, {
-            uid: currentUser.uid, // Identifies as admin
+            uid: currentUser.uid, 
             name: "📣 SYSTEM ANNOUNCEMENT",
             photoURL: "https://api.dicebear.com/9.x/initials/svg?seed=SYS&backgroundColor=da373c",
             text: announcement,
@@ -625,7 +716,7 @@ document.getElementById('system-announcement-btn')?.addEventListener('click', ()
 });
 
 document.getElementById('assign-role-btn')?.addEventListener('click', () => {
-    if (!currentUser || currentUser.uid !== OWNER_UID) return; // ONLY Owner can assign roles
+    if (!currentUser || currentUser.uid !== OWNER_UID) return; 
 
     const targetUid = document.getElementById('role-uid-input').value.trim();
     const role = document.getElementById('role-select').value;

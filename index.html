@@ -121,12 +121,12 @@
             <div>
                 <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
                 <h3>Channels</h3>
-                <div id="welcome-btn" class="channel-link active-chat-link"># welcome</div>
-                <div id="announcements-btn" class="channel-link"># announcements</div>
-                <div id="general-1-btn" class="channel-link"># general-1</div>
-                <div id="general-2-btn" class="channel-link"># general-2</div>
-                <div id="general-4-btn" class="channel-link"># general-4</div>
-                <div id="general-5-btn" class="channel-link"># general-5</div>
+                
+                <!-- DYNAMIC CHANNELS CONTAINER -->
+                <div id="channels-container">
+                    <div style="font-size: 0.8em; color: #949ba4;">Loading channels...</div>
+                </div>
+
             </div>
             
             <div style="margin-top: 15px; border-top: 1px solid #1e1f22; padding-top: 15px;">
@@ -145,6 +145,13 @@
                 <button id="clear-channel-btn" class="admin-btn">🗑️ Clear Current Chat</button>
                 <button id="system-announcement-btn" class="admin-btn" style="background: #e67e22;">📢 Send Announcement</button>
                 
+                <!-- CHANNEL MANAGER TOOLS -->
+                <div id="channel-manager" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #da373c; display: none;">
+                    <h4 style="color: #ffad1f; margin-top: 0;">📺 Manage Channels</h4>
+                    <input type="text" id="new-channel-input" placeholder="New channel name..." style="width: 100%; padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; margin-bottom: 5px; font-size: 0.8em;">
+                    <button id="create-channel-btn" class="admin-btn" style="background: #23a559;">+ Create Channel</button>
+                </div>
+
                 <!-- OWNER ONLY TOOLS -->
                 <div id="role-assigner" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #da373c; display: none;">
                     <h4 style="color: #ffad1f; margin-top: 0;">👑 Owner Tools</h4>
