@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getDatabase, ref, push, onChildAdded, remove, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getDatabase, ref as dbRef, push, onChildAdded, remove, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
 // ==========================================
 // 1. PASTE YOUR FIREBASE CONFIG HERE
@@ -234,18 +234,17 @@ fileInput.addEventListener('change', (e) => {
 
 
 // --- DYNAMIC CHANNELS RENDERING ---
-onValue(ref(db, 'channel_list'), (snapshot) => {
+onValue(dbRef(db, 'channel_list'), (snapshot) => {
     const channelsContainer = document.getElementById('channels-container');
     if (!channelsContainer) return;
     
     channelsContainer.innerHTML = '';
     
-    // Auto-create default channels if none exist (Owner setup)
     if (!snapshot.exists()) {
         if (currentUser && currentUser.uid === OWNER_UID) {
-            set(ref(db, 'channel_list/welcome'), { name: 'welcome' });
-            set(ref(db, 'channel_list/announcements'), { name: 'announcements' });
-            set(ref(db, 'channel_list/general-1'), { name: 'general-1' });
+            set(dbRef(db, 'channel_list/welcome'), { name: 'welcome' });
+            set(dbRef(db, 'channel_list/announcements'), { name: 'announcements' });
+            set(dbRef(db, 'channel_list/general-1'), { name: 'general-1' });
         }
         return;
     }
@@ -256,7 +255,6 @@ onValue(ref(db, 'channel_list'), (snapshot) => {
 
         const div = document.createElement('div');
         div.className = 'channel-link';
-        // Keep active highlight if we are currently in this chat
         if (currentChatPath === `channels/${chId}`) div.classList.add('active-chat-link');
         
         div.style.display = 'flex';
@@ -270,7 +268,6 @@ onValue(ref(db, 'channel_list'), (snapshot) => {
         
         div.appendChild(nameSpan);
 
-        // Edit & Delete icons for Admins
         if (currentUser && hasAdminPowers(currentUser.uid)) {
             const controls = document.createElement('div');
             
@@ -282,7 +279,7 @@ onValue(ref(db, 'channel_list'), (snapshot) => {
                 e.stopPropagation();
                 const newName = prompt(`Enter new name for #${chName}:`, chName);
                 if (newName && newName.trim() !== '') {
-                    update(ref(db, `channel_list/${chId}`), { name: newName.trim() });
+                    update(dbRef(db, `channel_list/${chId}`), { name: newName.trim() });
                 }
             };
 
@@ -296,8 +293,8 @@ onValue(ref(db, 'channel_list'), (snapshot) => {
                     return alert("System Error: You cannot delete core system channels.");
                 }
                 if (confirm(`Are you SURE you want to permanently delete #${chName} and all its messages?`)) {
-                    remove(ref(db, `channel_list/${chId}`));
-                    remove(ref(db, `channels/${chId}`)); 
+                    remove(dbRef(db, `channel_list/${chId}`));
+                    remove(dbRef(db, `channels/${chId}`)); 
                     if (currentChatPath === `channels/${chId}`) switchChat('channels/welcome', '# welcome');
                 }
             };
@@ -346,7 +343,7 @@ function switchChat(chatPath, chatTitle, btnElement) {
 
     if (currentChatUnsubscribe) currentChatUnsubscribe(); 
     
-    currentChatRef = ref(db, chatPath);
+    currentChatRef = dbRef(db, chatPath);
     
     currentChatUnsubscribe = onChildAdded(currentChatRef, (snapshot) => {
         const data = snapshot.val();
@@ -367,11 +364,8 @@ function switchChat(chatPath, chatTitle, btnElement) {
         const nameSpan = document.createElement('span');
         nameSpan.className = 'sender-name';
         nameSpan.innerText = data.name;
-        
-        // ADD NAME TO HEADER (This is the line I missed last time!)
         headerDiv.appendChild(nameSpan);
 
-        // Fetch User Role dynamically and create Badge
         const userRole = data.uid ? userRoles[data.uid] : null;
         if (userRole) {
             const roleBadge = document.createElement('span');
@@ -385,7 +379,6 @@ function switchChat(chatPath, chatTitle, btnElement) {
         timeSpan.innerText = formatTime(data.timestamp);
         headerDiv.appendChild(timeSpan);
 
-        // Delete Button
         if (currentUser && hasAdminPowers(currentUser.uid)) {
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-msg-btn';
@@ -393,7 +386,7 @@ function switchChat(chatPath, chatTitle, btnElement) {
             deleteBtn.title = 'Delete message (Admin)';
             deleteBtn.addEventListener('click', () => {
                 if (confirm("Delete this message?")) {
-                    const msgRef = ref(db, `${chatPath}/${snapshot.key}`);
+                    const msgRef = dbRef(db, `${chatPath}/${snapshot.key}`);
                     remove(msgRef).then(() => {
                         msgDiv.style.display = 'none'; 
                     }).catch(err => alert("Failed to delete: " + err.message));
@@ -454,7 +447,6 @@ function updateSidebarProfile() {
 function refreshAdminUI() {
     if (!currentUser) return;
     
-    // Check general admin powers
     if (adminPanel) {
         if (hasAdminPowers(currentUser.uid)) {
             adminPanel.style.display = 'block';
@@ -464,7 +456,6 @@ function refreshAdminUI() {
         }
     }
     
-    // Check specific OWNER powers
     if (roleAssigner) {
         if (currentUser.uid === OWNER_UID) {
             roleAssigner.style.display = 'block';
@@ -486,12 +477,10 @@ onAuthStateChanged(auth, (user) => {
         
         updateSidebarProfile();
 
-        // Listen for Global Roles
-        onValue(ref(db, 'roles'), (snapshot) => {
+        onValue(dbRef(db, 'roles'), (snapshot) => {
             userRoles = snapshot.val() || {};
             refreshAdminUI();
             
-            // Re-render chat to update badges
             if (currentChatPath) {
                 const activeBtn = document.querySelector('.active-chat-link');
                 const title = document.getElementById('chat-header').innerText;
@@ -504,7 +493,7 @@ onAuthStateChanged(auth, (user) => {
         switchChat('channels/welcome', '# welcome');
         
         document.getElementById('friends-list').innerHTML = '';
-        const myFriendsRef = ref(db, 'users/' + user.uid + '/friends');
+        const myFriendsRef = dbRef(db, 'users/' + user.uid + '/friends');
         
         onChildAdded(myFriendsRef, (snapshot) => {
             const friend = snapshot.val();
@@ -610,21 +599,77 @@ document.getElementById('save-username-btn').addEventListener('click', () => {
     }
 });
 
-document.getElementById('save-avatar-btn').addEventListener('click', () => {
-    const newPic = document.getElementById('avatar-input').value.trim();
-    if (newPic && currentUser) {
-        updateProfile(currentUser, { photoURL: newPic }).then(() => {
-            updateSidebarProfile();
-            document.getElementById('avatar-input').value = '';
-        }).catch(err => alert("Error updating Avatar: " + err.message));
+// PROFILE FILE UPLOAD ($0 BUDGET BYPASS - NO STORAGE BUCKET NEEDED)
+document.getElementById('save-avatar-btn')?.addEventListener('click', () => {
+    document.getElementById('avatar-file-input').click();
+});
+
+document.getElementById('avatar-file-input')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+    
+    if (file.size > 3 * 1024 * 1024) {
+        return alert("File is too large! Please choose an image under 3MB.");
     }
+
+    const btn = document.getElementById('save-avatar-btn');
+    const originalText = btn.innerText;
+    btn.innerText = "Compressing...";
+    btn.disabled = true;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            // 1. Create a tiny invisible canvas
+            const canvas = document.createElement('canvas');
+            const MAX_SIZE = 120; // Keeps the file size small enough for the free database
+            
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+                if (width > MAX_SIZE) {
+                    height *= MAX_SIZE / width;
+                    width = MAX_SIZE;
+                }
+            } else {
+                if (height > MAX_SIZE) {
+                    width *= MAX_SIZE / height;
+                    height = MAX_SIZE;
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // 2. Convert the image into a raw text string (Base64)
+            const base64String = canvas.toDataURL('image/jpeg', 0.6);
+
+            // 3. Save the text string directly to the Free User Profile
+            updateProfile(currentUser, { photoURL: base64String })
+                .then(() => {
+                    updateSidebarProfile();
+                    alert("Profile picture updated for free!");
+                })
+                .catch(err => alert("Error updating Avatar: " + err.message))
+                .finally(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    e.target.value = '';
+                });
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
 });
 
 document.getElementById('add-friend-btn').addEventListener('click', () => {
     const fName = document.getElementById('friend-name-input').value.trim();
     const fId = document.getElementById('friend-id-input').value.trim();
     if (fName && fId && currentUser) {
-        push(ref(db, 'users/' + currentUser.uid + '/friends'), { name: fName, voiceId: fId });
+        push(dbRef(db, 'users/' + currentUser.uid + '/friends'), { name: fName, voiceId: fId });
         document.getElementById('friend-name-input').value = '';
         document.getElementById('friend-id-input').value = '';
     }
@@ -678,10 +723,9 @@ document.getElementById('create-channel-btn')?.addEventListener('click', () => {
     const nameInput = document.getElementById('new-channel-input').value.trim();
     if (!nameInput) return alert("Please enter a channel name!");
     
-    // Format ID safely (lowercase, spaces to dashes)
     const channelId = nameInput.toLowerCase().replace(/[^a-z0-9]/g, '-');
     
-    set(ref(db, `channel_list/${channelId}`), { name: nameInput })
+    set(dbRef(db, `channel_list/${channelId}`), { name: nameInput })
         .then(() => {
             document.getElementById('new-channel-input').value = '';
         })
@@ -692,7 +736,7 @@ document.getElementById('clear-channel-btn')?.addEventListener('click', () => {
     if (!currentUser || !hasAdminPowers(currentUser.uid)) return;
     
     if (confirm(`Are you sure you want to delete ALL messages in ${currentChatPath}?`)) {
-        set(ref(db, currentChatPath || 'channels/general-1'), null)
+        set(dbRef(db, currentChatPath || 'channels/welcome'), null)
             .then(() => {
                 document.getElementById('messages').innerHTML = '';
                 alert("Channel cleared successfully.");
@@ -708,7 +752,7 @@ document.getElementById('system-announcement-btn')?.addEventListener('click', ()
     if (announcement && currentChatRef) {
         push(currentChatRef, {
             uid: currentUser.uid, 
-            name: "📣 SYSTEM ANNOUNCEMENT 📣",
+            name: "📣 SYSTEM ANNOUNCEMENT",
             photoURL: "https://api.dicebear.com/9.x/initials/svg?seed=SYS&backgroundColor=da373c",
             text: announcement,
             type: 'text',
@@ -726,11 +770,11 @@ document.getElementById('assign-role-btn')?.addEventListener('click', () => {
     if (!targetUid) return alert("Please enter the user's Voice ID (UID) first!");
     
     if (role === "") {
-        remove(ref(db, `roles/${targetUid}`))
+        remove(dbRef(db, `roles/${targetUid}`))
             .then(() => alert("Role removed successfully!"))
             .catch(err => alert("Error: " + err.message));
     } else {
-        set(ref(db, `roles/${targetUid}`), role)
+        set(dbRef(db, `roles/${targetUid}`), role)
             .then(() => alert(`Successfully assigned the [${role}] role!`))
             .catch(err => alert("Error: " + err.message));
     }
