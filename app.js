@@ -599,8 +599,8 @@ document.getElementById('save-username-btn').addEventListener('click', () => {
     }
 });
 
-// PROFILE FILE UPLOAD ($0 BUDGET BYPASS - NO STORAGE BUCKET NEEDED)
-document.getElementById('save-avatar-btn')?.addEventListener('click', () => {
+// PROFILE FILE UPLOAD ($0 BUDGET BYPASS)
+document.getElementById('upload-avatar-btn')?.addEventListener('click', () => {
     document.getElementById('avatar-file-input').click();
 });
 
@@ -612,7 +612,7 @@ document.getElementById('avatar-file-input')?.addEventListener('change', (e) => 
         return alert("File is too large! Please choose an image under 3MB.");
     }
 
-    const btn = document.getElementById('save-avatar-btn');
+    const btn = document.getElementById('upload-avatar-btn');
     const originalText = btn.innerText;
     btn.innerText = "Compressing...";
     btn.disabled = true;
@@ -621,9 +621,8 @@ document.getElementById('avatar-file-input')?.addEventListener('change', (e) => 
     reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
-            // 1. Create a tiny invisible canvas
             const canvas = document.createElement('canvas');
-            const MAX_SIZE = 120; // Keeps the file size small enough for the free database
+            const MAX_SIZE = 120; 
             
             let width = img.width;
             let height = img.height;
@@ -644,10 +643,8 @@ document.getElementById('avatar-file-input')?.addEventListener('change', (e) => 
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
             
-            // 2. Convert the image into a raw text string (Base64)
             const base64String = canvas.toDataURL('image/jpeg', 0.6);
 
-            // 3. Save the text string directly to the Free User Profile
             updateProfile(currentUser, { photoURL: base64String })
                 .then(() => {
                     updateSidebarProfile();
