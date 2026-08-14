@@ -30,8 +30,7 @@
         .channel-link:hover { background: #3f4147; color: white; }
         .active-chat-link { background: #3f4147; color: white; }
 
-        .friend-item { display: flex; justify-content: space-between; align-items: center; background: #1e1f22; padding: 8px; margin-bottom: 5px; border-radius: 4px; font-size: 0.9em; cursor: pointer; }
-        .friend-item:hover { background: #383a40; }
+        .friend-item { display: flex; justify-content: space-between; align-items: center; background: #1e1f22; padding: 8px; margin-bottom: 5px; border-radius: 4px; font-size: 0.9em; }
         .friend-call-btn { background: #23a559; border: none; color: white; border-radius: 3px; cursor: pointer; padding: 4px 8px; font-size: 0.8em; }
 
         .avatar { border-radius: 50%; object-fit: cover; }
@@ -53,7 +52,11 @@
         .message-block { display: flex; flex-direction: row; align-items: flex-start; }
         .message-content { display: flex; flex-direction: column; }
         .message-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .sender-name { font-weight: bold; font-size: 1em; color: #5865F2; }
+        
+        /* Updated pointer for UID clicking */
+        .sender-name { font-weight: bold; font-size: 1em; color: #5865F2; cursor: pointer; }
+        .sender-name:hover { text-decoration: underline; }
+        
         .message-time { font-size: 0.75em; color: #949ba4; }
         .chat-media-img { max-width: 250px; max-height: 250px; border-radius: 8px; margin-top: 5px; }
 
@@ -81,16 +84,20 @@
         #gif-results img:hover { opacity: 0.8; }
 
         /* Admin Panel Styles */
-        #admin-panel { display: none; background: #1e1f22; padding: 10px; border-radius: 5px; margin-top: 15px; border: 1px solid #da373c; }
+        #admin-panel { display: none; background: #1e1f22; padding: 10px; border-radius: 5px; margin-top: 15px; border: 1px solid #da373c; flex-shrink: 0; }
         #admin-panel h4 { margin: 0 0 8px 0; color: #da373c; font-size: 0.85em; text-transform: uppercase; }
         .admin-btn { width: 100%; padding: 6px; margin-bottom: 5px; background: #da373c; border: none; color: white; border-radius: 3px; cursor: pointer; font-size: 0.8em; font-weight: bold; }
         .admin-btn:hover { background: #a1282b; }
         .delete-msg-btn { background: none; border: none; color: #da373c; cursor: pointer; font-size: 0.8em; margin-left: 8px; opacity: 0.6; }
         .delete-msg-btn:hover { opacity: 1; }
 
+        /* Custom Scrollbar for inner sidebar */
+        #sidebar-scroller::-webkit-scrollbar { width: 6px; }
+        #sidebar-scroller::-webkit-scrollbar-thumb { background-color: #1e1f22; border-radius: 10px; }
+
         @media (max-width: 768px) {
             #app-container { flex-direction: column; height: 100vh; height: 100dvh; }
-            #sidebar { width: 100%; max-height: 35vh; overflow-y: auto; border-bottom: 2px solid #1e1f22; padding: 12px; }
+            #sidebar { width: 100%; max-height: 35vh; border-bottom: 2px solid #1e1f22; padding: 12px; }
             #main-chat { flex-grow: 1; height: 65vh; }
             #input-area { padding: 10px; gap: 5px; }
             #message-input { font-size: 16px; }
@@ -118,27 +125,50 @@
 
     <div id="app-container">
         <div id="sidebar">
-            <div>
-                <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
-                <h3>Channels</h3>
-                
-                <div id="channels-container">
-                    <div style="font-size: 0.8em; color: #949ba4;">Loading channels...</div>
-                </div>
-
-            </div>
+            <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
             
-            <div style="margin-top: 15px; border-top: 1px solid #1e1f22; padding-top: 15px;">
-                <h3 style="margin-top: 0;">Direct Messages</h3>
-                <div id="friends-list" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></div>
+            <!-- SCROLLABLE SIDEBAR SECTION -->
+            <div id="sidebar-scroller" style="flex-grow: 1; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; gap: 15px;">
                 
-                <div style="display: flex; gap: 5px; flex-direction: column;">
-                    <input type="text" id="friend-name-input" placeholder="Friend's Name" style="padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
-                    <input type="text" id="friend-id-input" placeholder="Their Voice ID" style="padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
-                    <button id="add-friend-btn" style="background: #2b2d31; border: 1px solid #5865F2; color: #5865F2; border-radius: 3px; cursor: pointer; padding: 6px;">+ Add Friend</button>
+                <div>
+                    <h3 style="margin-top: 0; margin-bottom: 5px;">Channels</h3>
+                    <div id="channels-container">
+                        <div style="font-size: 0.8em; color: #949ba4;">Loading channels...</div>
+                    </div>
                 </div>
+                
+                <div style="border-top: 1px solid #1e1f22; padding-top: 10px;">
+                    <h3 style="margin-top: 0; margin-bottom: 5px;">Direct Messages</h3>
+                    <div id="dms-container" style="margin-bottom: 5px;"></div>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="dm-uid-input" placeholder="User Voice ID..." style="width: 100%; padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; font-size: 0.8em;">
+                        <button id="start-dm-btn" style="background: #5865F2; border: none; color: white; border-radius: 3px; cursor: pointer; padding: 6px;">Start</button>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #1e1f22; padding-top: 10px;">
+                    <h3 style="margin-top: 0; margin-bottom: 5px;">Group Chats</h3>
+                    <div id="groups-container" style="margin-bottom: 5px;"></div>
+                    <div style="display: flex; gap: 5px; flex-direction: column;">
+                        <input type="text" id="group-name-input" placeholder="Group Name" style="padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; font-size: 0.8em;">
+                        <input type="text" id="group-uids-input" placeholder="Voice IDs (comma separated)" style="padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; font-size: 0.8em;">
+                        <button id="start-group-btn" style="background: #23a559; border: none; color: white; border-radius: 3px; cursor: pointer; padding: 6px; font-weight: bold;">+ Create Group</button>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #1e1f22; padding-top: 10px;">
+                    <h3 style="margin-top: 0; margin-bottom: 5px;">Friends (Calls)</h3>
+                    <div id="friends-list" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></div>
+                    <div style="display: flex; gap: 5px; flex-direction: column;">
+                        <input type="text" id="friend-name-input" placeholder="Friend's Name" style="padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; font-size: 0.8em;">
+                        <input type="text" id="friend-id-input" placeholder="Their Voice ID" style="padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; font-size: 0.8em;">
+                        <button id="add-friend-btn" style="background: #2b2d31; border: 1px solid #5865F2; color: #5865F2; border-radius: 3px; cursor: pointer; padding: 6px;">+ Add Friend</button>
+                    </div>
+                </div>
+
             </div>
 
+            <!-- STATIC ADMIN & PROFILE SECTIONS AT BOTTOM -->
             <div id="admin-panel">
                 <h4>⚙️ Admin Panel</h4>
                 <button id="clear-channel-btn" class="admin-btn">🗑️ Clear Current Chat</button>
@@ -164,7 +194,7 @@
                 </div>
             </div>
 
-            <div id="user-profile" style="margin-top: auto; border-top: 1px solid #1e1f22; padding-top: 15px;">
+            <div id="user-profile" style="margin-top: 15px; border-top: 1px solid #1e1f22; padding-top: 15px; flex-shrink: 0;">
                 <div style="font-size: 0.8em; color: #949ba4; margin-bottom: 10px;">LOGGED IN AS</div>
                 
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
@@ -177,7 +207,6 @@
                         <input type="text" id="username-input" placeholder="New name..." style="width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
                         <button id="save-username-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px;">Save</button>
                     </div>
-                    <!-- NEW FILE UPLOAD FOR PFP -->
                     <div style="display: flex; gap: 5px;">
                         <input type="file" id="avatar-file-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
                         <button id="upload-avatar-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px; width: 100%;">Upload New PFP</button>

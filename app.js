@@ -237,7 +237,6 @@ fileInput.addEventListener('change', (e) => {
 onValue(dbRef(db, 'channel_list'), (snapshot) => {
     const channelsContainer = document.getElementById('channels-container');
     if (!channelsContainer) return;
-    
     channelsContainer.innerHTML = '';
     
     if (!snapshot.exists()) {
@@ -265,7 +264,6 @@ onValue(dbRef(db, 'channel_list'), (snapshot) => {
         nameSpan.innerText = `# ${chName}`;
         nameSpan.style.flexGrow = '1';
         nameSpan.addEventListener('click', () => switchChat(`channels/${chId}`, `# ${chName}`, div));
-        
         div.appendChild(nameSpan);
 
         if (currentUser && hasAdminPowers(currentUser.uid)) {
@@ -289,13 +287,11 @@ onValue(dbRef(db, 'channel_list'), (snapshot) => {
             delBtn.title = 'Delete Channel';
             delBtn.onclick = (e) => {
                 e.stopPropagation();
-                if (chId === 'welcome' || chId === 'announcements') {
-                    return alert("System Error: You cannot delete core system channels.");
-                }
+                if (chId === 'welcome' || chId === 'announcements') return alert("System Error: You cannot delete core system channels.");
                 if (confirm(`Are you SURE you want to permanently delete #${chName} and all its messages?`)) {
                     remove(dbRef(db, `channel_list/${chId}`));
                     remove(dbRef(db, `channels/${chId}`)); 
-                    if (currentChatPath === `channels/${chId}`) switchChat('channels/welcome', '# welcome');
+                    if (currentChatPath === `channels/${chId}`) switchChat('channels/welcome', '# welcome', document.querySelector('.channel-link'));
                 }
             };
             
@@ -303,7 +299,6 @@ onValue(dbRef(db, 'channel_list'), (snapshot) => {
             controls.appendChild(delBtn);
             div.appendChild(controls);
         }
-
         channelsContainer.appendChild(div);
     });
 });
@@ -364,6 +359,13 @@ function switchChat(chatPath, chatTitle, btnElement) {
         const nameSpan = document.createElement('span');
         nameSpan.className = 'sender-name';
         nameSpan.innerText = data.name;
+        
+        // CLICK TO VIEW VOICE ID FEATURE
+        nameSpan.title = "Click to view Voice ID";
+        nameSpan.addEventListener('click', () => {
+            prompt(`${data.name}'s Voice ID (Copy below):`, data.uid);
+        });
+        
         headerDiv.appendChild(nameSpan);
 
         const userRole = data.uid ? userRoles[data.uid] : null;
@@ -477,10 +479,12 @@ onAuthStateChanged(auth, (user) => {
         
         updateSidebarProfile();
 
+        // Write profile name securely so DMs can fetch it
+        update(dbRef(db, `user_profiles/${user.uid}`), { name: user.displayName || user.email.split('@')[0] });
+
         onValue(dbRef(db, 'roles'), (snapshot) => {
             userRoles = snapshot.val() || {};
             refreshAdminUI();
-            
             if (currentChatPath) {
                 const activeBtn = document.querySelector('.active-chat-link');
                 const title = document.getElementById('chat-header').innerText;
@@ -492,10 +496,41 @@ onAuthStateChanged(auth, (user) => {
         
         switchChat('channels/welcome', '# welcome');
         
+        // --- DYNAMIC LOAD DMs ---
+        document.getElementById('dms-container').innerHTML = '';
+        onChildAdded(dbRef(db, `user_dms/${user.uid}`), (snap) => {
+            const otherUid = snap.key;
+            const dmPath = user.uid < otherUid ? `dms/${user.uid}_${otherUid}` : `dms/${otherUid}_${user.uid}`;
+            
+            const div = document.createElement('div');
+            div.className = 'channel-link';
+            div.innerText = `@ Loading...`;
+            document.getElementById('dms-container').appendChild(div);
+
+            onValue(dbRef(db, `user_profiles/${otherUid}/name`), (nameSnap) => {
+                const name = nameSnap.val() || otherUid.substring(0, 6);
+                div.innerText = `@ ${name}`;
+                div.onclick = () => switchChat(dmPath, `@ ${name}`, div);
+                if (currentChatPath === dmPath) div.classList.add('active-chat-link');
+            });
+        });
+
+        // --- DYNAMIC LOAD GROUP CHATS ---
+        document.getElementById('groups-container').innerHTML = '';
+        onChildAdded(dbRef(db, `user_groups/${user.uid}`), (snap) => {
+            const groupId = snap.key;
+            const groupName = snap.val();
+            const div = document.createElement('div');
+            div.className = 'channel-link';
+            div.innerText = `👥 ${groupName}`;
+            div.onclick = () => switchChat(`group_messages/${groupId}`, `👥 ${groupName}`, div);
+            document.getElementById('groups-container').appendChild(div);
+            if (currentChatPath === `group_messages/${groupId}`) div.classList.add('active-chat-link');
+        });
+
+        // --- FRIENDS LIST (CALLS ONLY) ---
         document.getElementById('friends-list').innerHTML = '';
-        const myFriendsRef = dbRef(db, 'users/' + user.uid + '/friends');
-        
-        onChildAdded(myFriendsRef, (snapshot) => {
+        onChildAdded(dbRef(db, 'users/' + user.uid + '/friends'), (snapshot) => {
             const friend = snapshot.val();
             const div = document.createElement('div');
             div.className = 'friend-item';
@@ -514,13 +549,6 @@ onAuthStateChanged(auth, (user) => {
             
             nameContainer.appendChild(fAvatar);
             nameContainer.appendChild(nameSpan);
-            
-            nameContainer.addEventListener('click', () => {
-                const uid1 = currentUser.uid;
-                const uid2 = friend.voiceId; 
-                const dmPath = uid1 < uid2 ? `dms/${uid1}_${uid2}` : `dms/${uid2}_${uid1}`;
-                switchChat(dmPath, '@ ' + friend.name, null);
-            });
             
             const callFriendBtn = document.createElement('button');
             callFriendBtn.className = 'friend-call-btn';
@@ -548,6 +576,40 @@ onAuthStateChanged(auth, (user) => {
         if (currentChatUnsubscribe) currentChatUnsubscribe();
     }
 });
+
+// START DM LOGIC (Auto-syncs for both)
+document.getElementById('start-dm-btn')?.addEventListener('click', () => {
+    const targetUid = document.getElementById('dm-uid-input').value.trim();
+    if (!targetUid || targetUid === currentUser.uid) return alert("Please enter a valid Voice ID.");
+    
+    set(dbRef(db, `user_dms/${currentUser.uid}/${targetUid}`), true);
+    set(dbRef(db, `user_dms/${targetUid}/${currentUser.uid}`), true);
+    document.getElementById('dm-uid-input').value = '';
+});
+
+// CREATE GROUP CHAT LOGIC
+document.getElementById('start-group-btn')?.addEventListener('click', () => {
+    const gName = document.getElementById('group-name-input').value.trim();
+    const uidsStr = document.getElementById('group-uids-input').value.trim();
+    
+    if (!gName || !uidsStr) return alert("Enter a group name and at least one Voice ID.");
+    
+    const uids = uidsStr.split(',').map(id => id.trim()).filter(id => id);
+    if (!uids.includes(currentUser.uid)) uids.push(currentUser.uid); // Always add yourself
+    
+    const groupId = 'grp_' + Date.now();
+    const groupData = { name: gName, members: {} };
+    
+    uids.forEach(id => {
+        groupData.members[id] = true;
+        set(dbRef(db, `user_groups/${id}/${groupId}`), gName);
+    });
+    
+    set(dbRef(db, `groups/${groupId}`), groupData);
+    document.getElementById('group-name-input').value = '';
+    document.getElementById('group-uids-input').value = '';
+});
+
 
 // PASSWORD RESET
 document.getElementById('forgot-password-link').addEventListener('click', (e) => {
@@ -595,6 +657,7 @@ document.getElementById('save-username-btn').addEventListener('click', () => {
         updateProfile(currentUser, { displayName: newName }).then(() => {
             updateSidebarProfile();
             document.getElementById('username-input').value = '';
+            update(dbRef(db, `user_profiles/${currentUser.uid}`), { name: newName }); // Keep names synced
         }).catch(err => alert("Error updating name: " + err.message));
     }
 });
@@ -712,7 +775,6 @@ function sendMessage() {
 sendBtn.addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
-
 // --- ADMIN ACTIONS LOGIC ---
 document.getElementById('create-channel-btn')?.addEventListener('click', () => {
     if (!currentUser || !hasAdminPowers(currentUser.uid)) return;
@@ -723,9 +785,7 @@ document.getElementById('create-channel-btn')?.addEventListener('click', () => {
     const channelId = nameInput.toLowerCase().replace(/[^a-z0-9]/g, '-');
     
     set(dbRef(db, `channel_list/${channelId}`), { name: nameInput })
-        .then(() => {
-            document.getElementById('new-channel-input').value = '';
-        })
+        .then(() => { document.getElementById('new-channel-input').value = ''; })
         .catch(err => alert("Error creating channel: " + err.message));
 });
 
@@ -775,6 +835,5 @@ document.getElementById('assign-role-btn')?.addEventListener('click', () => {
             .then(() => alert(`Successfully assigned the [${role}] role!`))
             .catch(err => alert("Error: " + err.message));
     }
-    
     document.getElementById('role-uid-input').value = '';
 });
