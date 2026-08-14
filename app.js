@@ -752,7 +752,7 @@ document.getElementById('system-announcement-btn')?.addEventListener('click', ()
     if (announcement && currentChatRef) {
         push(currentChatRef, {
             uid: currentUser.uid, 
-            name: "📣 SYSTEM ANNOUNCEMENT",
+            name: "📣 SYSTEM ANNOUNCEMENT 📣",
             photoURL: "https://api.dicebear.com/9.x/initials/svg?seed=SYS&backgroundColor=da373c",
             text: announcement,
             type: 'text',

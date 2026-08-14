@@ -122,7 +122,6 @@
                 <div id="brand">HyperChat <button id="logout-btn">Logout</button></div>
                 <h3>Channels</h3>
                 
-                <!-- DYNAMIC CHANNELS CONTAINER -->
                 <div id="channels-container">
                     <div style="font-size: 0.8em; color: #949ba4;">Loading channels...</div>
                 </div>
@@ -145,14 +144,12 @@
                 <button id="clear-channel-btn" class="admin-btn">🗑️ Clear Current Chat</button>
                 <button id="system-announcement-btn" class="admin-btn" style="background: #e67e22;">📢 Send Announcement</button>
                 
-                <!-- CHANNEL MANAGER TOOLS -->
                 <div id="channel-manager" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #da373c; display: none;">
                     <h4 style="color: #ffad1f; margin-top: 0;">📺 Manage Channels</h4>
                     <input type="text" id="new-channel-input" placeholder="New channel name..." style="width: 100%; padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; margin-bottom: 5px; font-size: 0.8em;">
                     <button id="create-channel-btn" class="admin-btn" style="background: #23a559;">+ Create Channel</button>
                 </div>
 
-                <!-- OWNER ONLY TOOLS -->
                 <div id="role-assigner" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #da373c; display: none;">
                     <h4 style="color: #ffad1f; margin-top: 0;">👑 Owner Tools</h4>
                     <input type="text" id="role-uid-input" placeholder="User Voice ID (UID)" style="width: 100%; padding: 6px; border-radius: 3px; border: none; background: #1e1f22; color: white; margin-bottom: 5px; font-size: 0.8em;">
@@ -180,9 +177,10 @@
                         <input type="text" id="username-input" placeholder="New name..." style="width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
                         <button id="save-username-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px;">Save</button>
                     </div>
+                    <!-- NEW FILE UPLOAD FOR PFP -->
                     <div style="display: flex; gap: 5px;">
-                        <input type="text" id="avatar-input" placeholder="PFP Image URL..." style="width: 100%; padding: 5px; border-radius: 3px; border: none; background: #1e1f22; color: white;">
-                        <button id="save-avatar-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px;">Set</button>
+                        <input type="file" id="avatar-file-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
+                        <button id="upload-avatar-btn" style="background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 5px 10px; width: 100%;">Upload New PFP</button>
                     </div>
                 </div>
             </div>
