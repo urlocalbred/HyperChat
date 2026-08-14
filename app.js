@@ -53,7 +53,7 @@ function formatTime(timestamp) {
 }
 
 function getAvatarUrl(photoURL, name) {
-    return photoURL || `https://api.dicebear.com/9.x/initials/svg?seed=${name}&backgroundColor=5865F2`;
+    return photoURL || `https://api.dicebear.com/10.x/squircles/svg?seed=${name}&backgroundColor=5865F2`;
 }
 
 function requestNotificationPermission() {
